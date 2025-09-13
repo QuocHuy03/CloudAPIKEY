@@ -11,7 +11,6 @@ from services.clone_voice_service import (
 from middlewares.auth import require_auth
 from config import VOICE_OUTPUT_DIR
 from services.key_service_wrapper import check_key_validity
-from services.key_service import check_key_validity
 
 clone_voice_bp = Blueprint('clone_voice', __name__)
 
@@ -30,7 +29,7 @@ def auth_api():
     return jsonify(
         success=True,
         message="✅ Xác thực thành công",
-        expires=expires.strftime("%Y-%m-%d") if expires else "",
+        expires=expires if expires else "",
         remaining=remaining
     ), 200
 

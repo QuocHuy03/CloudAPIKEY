@@ -4,7 +4,6 @@ import time  # <- bổ sung
 from config import PROXIES_FILE
 from utils.file_utils import load_proxies
 from services.key_service_wrapper import update_usage_count_by
-from services.key_service import update_usage_count_by
 from utils.ausynclab import (
     create_clone_voice_tts,
     get_voice_list as ausync_get_voice_list,

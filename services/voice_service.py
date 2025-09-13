@@ -1,7 +1,6 @@
 import os
 from config import VOICE_OUTPUT_DIR, GEMINI_KEYS_FILE, PROXIES_FILE
 from services.key_service_wrapper import update_usage_count, get_key_status, get_key_info, parse_int
-from services.key_service import update_usage_count, get_key_status, get_key_info, parse_int
 from utils.file_utils import create_unique_output_dir, load_proxies
 from utils.gemini_client import gemini_tts_request
 import time

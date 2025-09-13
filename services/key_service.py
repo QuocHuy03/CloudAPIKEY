@@ -31,7 +31,7 @@ def get_key_info(key, module=None):
         current_time - _key_cache_timestamp.get(cache_key, 0) < KEY_CACHE_TTL):
         return _key_cache[cache_key]
     
-    df = get_csv_data(module)
+    df = get_csv_file(module)
     if df is None:
         return None
     
@@ -76,7 +76,7 @@ def parse_date(d):
 
 def check_key_validity(key, device_id, module=None):
     """Check key validity with improved performance"""
-    df = get_csv_data(module)
+    df = get_csv_file(module)
     if df is None:
         return False, "📄 Không thể đọc file dữ liệu!", None, None
 
@@ -141,7 +141,7 @@ def update_usage_count(key, device_id=None, module=None):
         raise Exception("❌ Module không hợp lệ")
 
     with csv_lock:
-        df = get_csv_data(module, force_refresh=True)  # Force refresh to get latest data
+        df = get_csv_file(module, force_refresh=True)  # Force refresh to get latest data
         
         row = df.loc[df['key'] == key]
         if row.empty:
@@ -177,7 +177,7 @@ def update_usage_count_by(key, count, device_id=None, module=None):
         raise Exception("❌ Module không hợp lệ")
 
     with csv_lock:
-        df = get_csv_data(module, force_refresh=True)
+        df = get_csv_file(module, force_refresh=True)
         
         row = df.loc[df['key'] == key]
         if row.empty:

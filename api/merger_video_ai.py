@@ -1,6 +1,5 @@
 from flask import Blueprint, request, jsonify
 from services.key_service_wrapper import check_key_validity
-from services.key_service import check_key_validity
 
 
 merger_video_ai_bp = Blueprint('merger_video_ai', __name__)
@@ -20,7 +19,7 @@ def auth_api():
     return jsonify(
         success=True,
         message="✅ Xác thực thành công",
-        expires=expires.strftime("%Y-%m-%d") if expires else "",
+        expires=expires if expires else "",
         remaining=remaining
     ), 200
 

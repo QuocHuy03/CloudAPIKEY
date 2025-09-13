@@ -2,7 +2,6 @@ from flask import Blueprint, request, jsonify
 from services.music_service import create_music, get_task_status
 from middlewares.auth import require_auth
 from services.key_service_wrapper import check_key_validity
-from services.key_service import check_key_validity
 
 music_bp = Blueprint('music', __name__)
 
@@ -27,7 +26,7 @@ def auth_api():
     return jsonify(
         success=True,
         message="✅ Xác thực thành công",
-        expires=expires.strftime("%Y-%m-%d") if expires else "",
+        expires=expires if expires else "",
         remaining=remaining
     ), 200
 

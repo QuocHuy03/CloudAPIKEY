@@ -49,7 +49,7 @@ def auth_api():
     return jsonify(
         success=True,
         message="✅ Xác thực thành công",
-        expires=expires.strftime("%Y-%m-%d") if expires else "",
+        expires=expires if expires else "",
         remaining=remaining
     ), 200
 
