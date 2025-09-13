@@ -466,6 +466,79 @@ def api_usage_history():
         'has_more': len(usage_logs) == limit
     })
 
+@admin_bp.route('/api/combined-activity')
+@admin_login_required
+def api_combined_activity():
+    """API endpoint để lấy cả activity log và API usage log gộp lại"""
+    limit = request.args.get('limit', 20, type=int)
+    
+    # Lấy activity log
+    activities = db_manager.get_activity_log(
+        limit=limit,
+        offset=0,
+        action=None,
+        module=None
+    )
+    
+    # Lấy API usage log
+    usage_logs = db_manager.get_api_usage_log(
+        limit=limit,
+        offset=0,
+        key_value=None,
+        module=None,
+        user_ip=None,
+        endpoint=None
+    )
+    
+    # Gộp và sắp xếp theo thời gian
+    combined_logs = []
+    
+    # Thêm activity logs với type indicator
+    for activity in activities:
+        combined_logs.append({
+            'id': f"activity_{activity['id']}",
+            'type': 'activity',
+            'created_at': activity['created_at'],
+            'action': activity['action'],
+            'key_value': activity['key_value'],
+            'module': activity['module'],
+            'user_ip': activity['user_ip'],
+            'user_agent': activity['user_agent'],
+            'old_values': activity['old_values'],
+            'new_values': activity['new_values'],
+            'response_status': None,
+            'response_message': None,
+            'endpoint': None,
+            'device_id': None
+        })
+    
+    # Thêm API usage logs với type indicator
+    for usage in usage_logs:
+        combined_logs.append({
+            'id': f"usage_{usage['id']}",
+            'type': 'api_usage',
+            'created_at': usage['created_at'],
+            'action': f"API_{usage['endpoint']}" if usage['endpoint'] else 'API_CALL',
+            'key_value': usage['key_value'],
+            'module': usage['module'],
+            'user_ip': usage['user_ip'],
+            'user_agent': usage['user_agent'],
+            'old_values': None,
+            'new_values': None,
+            'response_status': usage['response_status'],
+            'response_message': usage['response_message'],
+            'endpoint': usage['endpoint'],
+            'device_id': usage['device_id']
+        })
+    
+    # Sắp xếp theo thời gian giảm dần (mới nhất trước)
+    combined_logs.sort(key=lambda x: x['created_at'], reverse=True)
+    
+    # Giới hạn số lượng
+    combined_logs = combined_logs[:limit]
+    
+    return jsonify({'success': True, 'data': combined_logs})
+
 @admin_bp.route('/api/activity')
 @admin_login_required
 def api_activity():
@@ -492,6 +565,54 @@ def api_activity_stats():
     """API endpoint để lấy thống kê activity"""
     stats = db_manager.get_activity_stats()
     return jsonify({'success': True, 'data': stats})
+
+@admin_bp.route('/api/activity/cleanup', methods=['POST'])
+@admin_login_required
+def api_activity_cleanup():
+    """API endpoint để làm sạch activity log"""
+    try:
+        data = request.get_json()
+        
+        # Lấy các tham số từ request
+        days_to_keep = data.get('days_to_keep', None)
+        action_filter = data.get('action_filter', None)
+        module_filter = data.get('module_filter', None)
+        
+        # Validate parameters
+        if days_to_keep is not None:
+            try:
+                days_to_keep = int(days_to_keep)
+                if days_to_keep < 0:
+                    return jsonify({'success': False, 'message': 'Số ngày phải >= 0'})
+            except ValueError:
+                return jsonify({'success': False, 'message': 'Số ngày không hợp lệ'})
+        
+        # Thực hiện cleanup
+        result = db_manager.clean_activity_log(
+            days_to_keep=days_to_keep,
+            action_filter=action_filter,
+            module_filter=module_filter
+        )
+        
+        # Log activity về việc cleanup
+        log_activity(
+            action='CLEANUP_ACTIVITY_LOG',
+            old_values={
+                'days_to_keep': days_to_keep,
+                'action_filter': action_filter,
+                'module_filter': module_filter,
+                'deleted_count': result['deleted_count']
+            }
+        )
+        
+        return jsonify({
+            'success': True, 
+            'message': f'Đã xóa {result["deleted_count"]} records. Còn lại {result["remaining_count"]} records.',
+            'data': result
+        })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'Lỗi khi làm sạch: {str(e)}'})
 
 @admin_bp.route('/api-usage')
 @require_admin_login
@@ -609,4 +730,5 @@ def export_keys_excel():
         return redirect(url_for('admin.keys_list'))
     except Exception as e:
         flash(f'Lỗi khi xuất Excel: {str(e)}', 'error')
+        return redirect(url_for('admin.keys_list'))
         return redirect(url_for('admin.keys_list'))

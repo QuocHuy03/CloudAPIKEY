@@ -181,7 +181,11 @@
                                     </td>
                                     <td>
                                         {% if log.device_id %}
-                                            <code>{{ log.device_id[:15] }}{% if log.device_id|length > 15 %}...{% endif %}</code>
+                                            {% if log.device_id|length > 8 %}
+                                                <code>{{ log.device_id[:4] }}****{{ log.device_id[-4:] }}</code>
+                                            {% else %}
+                                                <code>{{ log.device_id }}</code>
+                                            {% endif %}
                                         {% else %}
                                             <span class="text-muted">-</span>
                                         {% endif %}
@@ -291,11 +295,17 @@ function exportUsageLog() {
     let csv = 'Thời gian,Key,Module,Device ID,Endpoint,IP Address,User Agent,Status,Message\n';
     
     allUsageLogs.forEach(log => {
+        // Mask device ID for CSV export
+        let maskedDeviceId = log.device_id || '';
+        if (maskedDeviceId.length > 8) {
+            maskedDeviceId = maskedDeviceId.substring(0, 4) + '****' + maskedDeviceId.substring(maskedDeviceId.length - 4);
+        }
+        
         const row = [
             log.created_at,
             log.key_value || '',
             log.module || '',
-            log.device_id || '',
+            maskedDeviceId,
             log.endpoint || '',
             log.user_ip || '',
             log.user_agent || '',
@@ -321,6 +331,12 @@ function viewUsageDetail(logId) {
     const log = allUsageLogs.find(l => l.id === logId);
     if (!log) return;
     
+    // Mask device ID for display
+    let maskedDeviceId = log.device_id || '-';
+    if (maskedDeviceId !== '-' && maskedDeviceId.length > 8) {
+        maskedDeviceId = maskedDeviceId.substring(0, 4) + '****' + maskedDeviceId.substring(maskedDeviceId.length - 4);
+    }
+    
     let content = `
         <div class="row">
             <div class="col-md-6">
@@ -329,9 +345,9 @@ function viewUsageDetail(logId) {
                     <tr><td><strong>ID:</strong></td><td>${log.id}</td></tr>
                     <tr><td><strong>Key:</strong></td><td><code>${log.key_value || '-'}</code></td></tr>
                     <tr><td><strong>Module:</strong></td><td>${log.module || '-'}</td></tr>
-                    <tr><td><strong>Device ID:</strong></td><td>${log.device_id || '-'}</td></tr>
+                    <tr><td><strong>Device:</strong></td><td><code>${maskedDeviceId}</code></td></tr>
                     <tr><td><strong>Endpoint:</strong></td><td>${log.endpoint || '-'}</td></tr>
-                    <tr><td><strong>Thời gian:</strong></td><td id="modal-time-${log.id}">${log.created_at}</td></tr>
+                    <tr><td><strong>Time:</strong></td><td id="modal-time-${log.id}">${log.created_at}</td></tr>
                 </table>
             </div>
             <div class="col-md-6">

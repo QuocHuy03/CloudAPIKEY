@@ -542,6 +542,69 @@ class DatabaseManager:
                 'recent_24h': recent_24h
             }
     
+    def clean_activity_log(self, days_to_keep: int = None, action_filter: str = None, module_filter: str = None) -> Dict:
+        """Làm sạch dữ liệu activity log"""
+        with self.lock:
+            conn = self.get_connection()
+            cursor = conn.cursor()
+            
+            # Đếm số records sẽ bị xóa trước khi xóa
+            count_query = 'SELECT COUNT(*) FROM activity_log'
+            count_params = []
+            count_conditions = []
+            
+            if days_to_keep:
+                count_conditions.append('created_at < datetime("now", "-{} days")'.format(days_to_keep))
+            
+            if action_filter:
+                count_conditions.append('action = ?')
+                count_params.append(action_filter)
+            
+            if module_filter:
+                count_conditions.append('module = ?')
+                count_params.append(module_filter)
+            
+            if count_conditions:
+                count_query += ' WHERE ' + ' AND '.join(count_conditions)
+            
+            cursor.execute(count_query, count_params)
+            records_to_delete = cursor.fetchone()[0]
+            
+            # Thực hiện xóa
+            delete_query = 'DELETE FROM activity_log'
+            delete_params = []
+            delete_conditions = []
+            
+            if days_to_keep:
+                delete_conditions.append('created_at < datetime("now", "-{} days")'.format(days_to_keep))
+            
+            if action_filter:
+                delete_conditions.append('action = ?')
+                delete_params.append(action_filter)
+            
+            if module_filter:
+                delete_conditions.append('module = ?')
+                delete_params.append(module_filter)
+            
+            if delete_conditions:
+                delete_query += ' WHERE ' + ' AND '.join(delete_conditions)
+            
+            cursor.execute(delete_query, delete_params)
+            deleted_count = cursor.rowcount
+            
+            # Đếm số records còn lại
+            cursor.execute('SELECT COUNT(*) FROM activity_log')
+            remaining_count = cursor.fetchone()[0]
+            
+            conn.commit()
+            conn.close()
+            
+            return {
+                'deleted_count': deleted_count,
+                'remaining_count': remaining_count,
+                'records_to_delete': records_to_delete
+            }
+    
     def log_api_usage(self, key_value: str, module: str, device_id: str = None,
                      endpoint: str = None, user_ip: str = None, user_agent: str = None,
                      request_data: Dict = None, response_status: int = None, 

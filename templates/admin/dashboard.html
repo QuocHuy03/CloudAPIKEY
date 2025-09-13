@@ -134,8 +134,11 @@
                     <button class="btn btn-sm btn-outline-secondary me-2" onclick="refreshRecentActivities()" title="Làm mới">
                         <i class="fas fa-sync-alt"></i>
                     </button>
-                    <a href="{{ url_for('admin.activity_log') }}" class="btn btn-sm btn-outline-primary">
-                        <i class="fas fa-eye me-1"></i>Xem tất cả
+                    <a href="{{ url_for('admin.activity_log') }}" class="btn btn-sm btn-outline-primary me-2">
+                        <i class="fas fa-history me-1"></i>Activity Log
+                    </a>
+                    <a href="{{ url_for('admin.api_usage_log') }}" class="btn btn-sm btn-outline-success">
+                        <i class="fas fa-globe me-1"></i>API Usage
                     </a>
                 </div>
             </div>
@@ -219,7 +222,7 @@ function exportData() {
 }
 
 function loadRecentActivities() {
-    $.get('{{ url_for("admin.api_activity") }}?limit=10', function(data) {
+    $.get('{{ url_for("admin.api_combined_activity") }}?limit=15', function(data) {
         if (data.success && data.data.length > 0) {
             let html = `
                 <div class="table-responsive">
@@ -231,7 +234,10 @@ function loadRecentActivities() {
                                     <i class="fas fa-clock me-1"></i>Thời gian
                                 </th>
                                 <th style="width: 100px;" class="text-center">
-                                    <i class="fas fa-tag me-1"></i>Hành động
+                                    <i class="fas fa-tag me-1"></i>Loại
+                                </th>
+                                <th style="width: 100px;" class="text-center">
+                                    <i class="fas fa-cog me-1"></i>Hành động
                                 </th>
                                 <th style="width: 150px;" class="text-center">
                                     <i class="fas fa-key me-1"></i>Key
@@ -250,18 +256,18 @@ function loadRecentActivities() {
                         <tbody>
             `;
             
-            data.data.forEach((activity, index) => {
-                const actionBadge = getActionBadge(activity.action);
-                const formattedTime = formatVietnamTime(activity.created_at);
-                const timeAgo = getVietnamTimeAgo(activity.created_at);
-                const keyDisplay = activity.key_value ? 
-                    `<code class="text-primary">${activity.key_value.substring(0, 15)}${activity.key_value.length > 15 ? '...' : ''}</code>` : 
+            data.data.forEach((log, index) => {
+                const typeBadge = getTypeBadge(log.type);
+                const actionBadge = getActionBadge(log.action, log.type, log.response_status);
+                const formattedTime = formatVietnamTime(log.created_at);
+                const keyDisplay = log.key_value ? 
+                    `<code class="text-primary">${log.key_value.substring(0, 15)}${log.key_value.length > 15 ? '...' : ''}</code>` : 
                     '<span class="text-muted">-</span>';
-                const moduleDisplay = activity.module ? 
-                    `<span class="badge bg-info">${activity.module.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}</span>` : 
+                const moduleDisplay = log.module ? 
+                    `<span class="badge bg-info">${log.module.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}</span>` : 
                     '<span class="text-muted">-</span>';
-                const ipDisplay = activity.user_ip ? 
-                    `<code class="text-success">${activity.user_ip}</code>` : 
+                const ipDisplay = log.user_ip ? 
+                    `<code class="text-success">${log.user_ip}</code>` : 
                     '<span class="text-muted">-</span>';
                 
                 html += `
@@ -274,12 +280,13 @@ function loadRecentActivities() {
                                 <small class="text-primary fw-bold">${formattedTime}</small>
                             </div>
                         </td>
+                        <td class="text-center">${typeBadge}</td>
                         <td class="text-center">${actionBadge}</td>
                         <td class="text-center">${keyDisplay}</td>
                         <td class="text-center">${moduleDisplay}</td>
                         <td class="text-center">${ipDisplay}</td>
                         <td class="text-center">
-                            <button class="btn btn-sm btn-outline-info" onclick="viewActivityDetail(${activity.id})" title="Xem chi tiết">
+                            <button class="btn btn-sm btn-outline-info" onclick="viewLogDetail('${log.id}', '${log.type}')" title="Xem chi tiết">
                                 <i class="fas fa-info-circle"></i>
                             </button>
                         </td>
@@ -298,7 +305,7 @@ function loadRecentActivities() {
                 <div class="text-center text-muted py-5">
                     <i class="fas fa-info-circle fa-3x mb-3"></i>
                     <h6>Chưa có hoạt động nào</h6>
-                    <p class="mb-0">Các hoạt động quản lý key sẽ hiển thị ở đây.</p>
+                    <p class="mb-0">Các hoạt động quản lý key và sử dụng API sẽ hiển thị ở đây.</p>
                 </div>
             `);
         }
@@ -323,19 +330,84 @@ function refreshRecentActivities() {
     loadRecentActivities();
 }
 
-function viewActivityDetail(activityId) {
-    // Placeholder for activity detail modal
-    showInfo(`Xem chi tiết hoạt động ID: ${activityId}`);
+function viewLogDetail(logId, logType) {
+    // Placeholder for log detail modal
+    showInfo(`Xem chi tiết ${logType === 'activity' ? 'hoạt động' : 'API usage'} ID: ${logId}`);
 }
 
-function getActionBadge(action) {
-    const badges = {
-        'CREATE_KEY': '<span class="badge bg-success"><i class="fas fa-plus me-1"></i>Tạo</span>',
-        'UPDATE_KEY': '<span class="badge bg-warning"><i class="fas fa-edit me-1"></i>Cập nhật</span>',
-        'DELETE_KEY': '<span class="badge bg-danger"><i class="fas fa-trash me-1"></i>Xóa</span>',
-        'VIEW_KEY': '<span class="badge bg-info"><i class="fas fa-eye me-1"></i>Xem</span>'
+function getTypeBadge(type) {
+    if (type === 'activity') {
+        return '<span class="badge bg-primary"><i class="fas fa-history me-1"></i>Admin</span>';
+    } else if (type === 'api_usage') {
+        return '<span class="badge bg-success"><i class="fas fa-globe me-1"></i>API</span>';
+    }
+    return '<span class="badge bg-secondary">Unknown</span>';
+}
+
+function getActionBadge(action, type, responseStatus) {
+    if (type === 'activity') {
+        const badges = {
+            'CREATE_KEY': '<span class="badge bg-success"><i class="fas fa-plus me-1"></i>Tạo</span>',
+            'UPDATE_KEY': '<span class="badge bg-warning"><i class="fas fa-edit me-1"></i>Cập nhật</span>',
+            'DELETE_KEY': '<span class="badge bg-danger"><i class="fas fa-trash me-1"></i>Xóa</span>',
+            'VIEW_KEY': '<span class="badge bg-info"><i class="fas fa-eye me-1"></i>Xem</span>'
+        };
+        return badges[action] || `<span class="badge bg-secondary">${action}</span>`;
+    } else if (type === 'api_usage') {
+        if (action.startsWith('API_/auth')) {
+            if (responseStatus === 200) {
+                return '<span class="badge bg-success"><i class="fas fa-sign-in-alt me-1"></i>Đăng nhập</span>';
+            } else if (responseStatus === 403) {
+                return '<span class="badge bg-danger"><i class="fas fa-times me-1"></i>Thất bại</span>';
+            } else if (responseStatus === 400) {
+                return '<span class="badge bg-warning"><i class="fas fa-exclamation me-1"></i>Lỗi</span>';
+            }
+        }
+        return '<span class="badge bg-info"><i class="fas fa-api me-1"></i>API Call</span>';
+    }
+    return '<span class="badge bg-secondary">Unknown</span>';
+}
+
+function showInfo(message) {
+    // Simple alert for now, can be replaced with modal later
+    alert(message);
+}
+
+// Format time to Vietnam timezone
+function formatVietnamTime(dateString) {
+    const date = new Date(dateString);
+    const vietnamTime = new Date(date.getTime() + (7 * 60 * 60 * 1000)); // UTC+7
+    
+    const options = {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false,
+        timeZone: 'Asia/Ho_Chi_Minh'
     };
-    return badges[action] || `<span class="badge bg-secondary">${action}</span>`;
+    
+    return vietnamTime.toLocaleString('vi-VN', options);
+}
+
+function getVietnamTimeAgo(dateString) {
+    const now = new Date();
+    const date = new Date(dateString);
+    const vietnamNow = new Date(now.getTime() + (7 * 60 * 60 * 1000));
+    const vietnamDate = new Date(date.getTime() + (7 * 60 * 60 * 1000));
+    
+    const diffMs = vietnamNow - vietnamDate;
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMins / 60);
+    const diffDays = Math.floor(diffHours / 24);
+    
+    if (diffMins < 1) return 'Vừa xong';
+    if (diffMins < 60) return `${diffMins} phút trước`;
+    if (diffHours < 24) return `${diffHours} giờ trước`;
+    if (diffDays < 7) return `${diffDays} ngày trước`;
+    return vietnamDate.toLocaleDateString('vi-VN');
 }
 
 // Load recent activities on page load

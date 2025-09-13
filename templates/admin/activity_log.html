@@ -131,6 +131,9 @@
                 <button class="btn btn-outline-success" onclick="exportActivity()">
                     <i class="fas fa-download me-2"></i>Xuất CSV
                 </button>
+                <button class="btn btn-outline-warning" onclick="showCleanupModal()">
+                    <i class="fas fa-broom me-2"></i>Làm sạch
+                </button>
             </div>
         </div>
     </div>
@@ -655,5 +658,143 @@ function updateVietnamTime() {
 $(document).ready(function() {
     updateVietnamTime();
 });
+
+// Cleanup functionality
+function showCleanupModal() {
+    const modal = new bootstrap.Modal(document.getElementById('cleanupModal'));
+    modal.show();
+}
+
+function performCleanup() {
+    const daysToKeep = document.getElementById('daysToKeep').value;
+    const actionFilter = document.getElementById('cleanupActionFilter').value;
+    const moduleFilter = document.getElementById('cleanupModuleFilter').value;
+    
+    // Validate input
+    if (daysToKeep && (isNaN(daysToKeep) || daysToKeep < 0)) {
+        alert('Số ngày phải là số >= 0');
+        return;
+    }
+    
+    // Confirm action
+    let confirmMessage = 'Bạn có chắc chắn muốn làm sạch activity log?';
+    if (daysToKeep) {
+        confirmMessage += `\nSẽ xóa các records cũ hơn ${daysToKeep} ngày.`;
+    }
+    if (actionFilter) {
+        confirmMessage += `\nChỉ xóa các records có action: ${actionFilter}`;
+    }
+    if (moduleFilter) {
+        confirmMessage += `\nChỉ xóa các records có module: ${moduleFilter}`;
+    }
+    
+    if (!confirm(confirmMessage)) {
+        return;
+    }
+    
+    // Show loading
+    const cleanupBtn = document.getElementById('cleanupBtn');
+    const originalText = cleanupBtn.innerHTML;
+    cleanupBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Đang xử lý...';
+    cleanupBtn.disabled = true;
+    
+    // Send request
+    fetch('/admin/api/activity/cleanup', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            days_to_keep: daysToKeep ? parseInt(daysToKeep) : null,
+            action_filter: actionFilter || null,
+            module_filter: moduleFilter || null
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert(data.message);
+            // Close modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById('cleanupModal'));
+            modal.hide();
+            // Refresh page
+            location.reload();
+        } else {
+            alert('Lỗi: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Có lỗi xảy ra khi thực hiện cleanup');
+    })
+    .finally(() => {
+        // Restore button
+        cleanupBtn.innerHTML = originalText;
+        cleanupBtn.disabled = false;
+    });
+}
 </script>
+
+<!-- Cleanup Modal -->
+<div class="modal fade" id="cleanupModal" tabindex="-1" aria-labelledby="cleanupModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="cleanupModalLabel">
+                    <i class="fas fa-broom me-2"></i>Làm sạch Activity Log
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    <strong>Cảnh báo:</strong> Hành động này sẽ xóa vĩnh viễn các records trong activity log. Hãy cân nhắc kỹ trước khi thực hiện.
+                </div>
+                
+                <div class="mb-3">
+                    <label for="daysToKeep" class="form-label">
+                        <i class="fas fa-calendar me-1"></i>Số ngày giữ lại (để trống = xóa tất cả):
+                    </label>
+                    <input type="number" class="form-control" id="daysToKeep" min="0" placeholder="Ví dụ: 30">
+                    <div class="form-text">Chỉ giữ lại các records trong X ngày gần đây, xóa các records cũ hơn</div>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="cleanupActionFilter" class="form-label">
+                        <i class="fas fa-filter me-1"></i>Lọc theo hành động (tùy chọn):
+                    </label>
+                    <select class="form-select" id="cleanupActionFilter">
+                        <option value="">Tất cả hành động</option>
+                        <option value="CREATE_KEY">Tạo Key</option>
+                        <option value="UPDATE_KEY">Cập nhật Key</option>
+                        <option value="DELETE_KEY">Xóa Key</option>
+                        <option value="VIEW_KEY">Xem Key</option>
+                        <option value="CLEANUP_ACTIVITY_LOG">Cleanup Activity Log</option>
+                    </select>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="cleanupModuleFilter" class="form-label">
+                        <i class="fas fa-cube me-1"></i>Lọc theo Module (tùy chọn):
+                    </label>
+                    <select class="form-select" id="cleanupModuleFilter">
+                        <option value="">Tất cả modules</option>
+                        {% for module in modules %}
+                        <option value="{{ module }}">{{ module.replace('_', ' ').title() }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-2"></i>Hủy
+                </button>
+                <button type="button" class="btn btn-warning" id="cleanupBtn" onclick="performCleanup()">
+                    <i class="fas fa-broom me-2"></i>Làm sạch
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 {% endblock %}
