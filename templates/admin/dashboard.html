@@ -373,10 +373,28 @@ function showInfo(message) {
     alert(message);
 }
 
-// Format time to Vietnam timezone
+// Format time to Vietnam timezone (database time is already in Vietnam timezone)
 function formatVietnamTime(dateString) {
-    const date = new Date(dateString);
-    const vietnamTime = new Date(date.getTime() + (7 * 60 * 60 * 1000)); // UTC+7
+    if (!dateString) return 'N/A';
+    
+    // Handle different date formats
+    let date;
+    if (typeof dateString === 'string') {
+        // If it's already in Vietnam time format, parse it directly
+        if (dateString.includes(' ')) {
+            // Format: "2025-09-12 07:06:54" - treat as Vietnam time
+            const [datePart, timePart] = dateString.split(' ');
+            const [year, month, day] = datePart.split('-');
+            const [hour, minute, second] = timePart.split(':');
+            date = new Date(year, month - 1, day, hour, minute, second);
+        } else {
+            date = new Date(dateString);
+        }
+    } else {
+        date = new Date(dateString);
+    }
+    
+    if (isNaN(date.getTime())) return 'Thời gian không hợp lệ';
     
     const options = {
         year: 'numeric',
@@ -385,20 +403,37 @@ function formatVietnamTime(dateString) {
         hour: '2-digit',
         minute: '2-digit',
         second: '2-digit',
-        hour12: false,
-        timeZone: 'Asia/Ho_Chi_Minh'
+        hour12: false
     };
     
-    return vietnamTime.toLocaleString('vi-VN', options);
+    return date.toLocaleString('vi-VN', options);
 }
 
 function getVietnamTimeAgo(dateString) {
-    const now = new Date();
-    const date = new Date(dateString);
-    const vietnamNow = new Date(now.getTime() + (7 * 60 * 60 * 1000));
-    const vietnamDate = new Date(date.getTime() + (7 * 60 * 60 * 1000));
+    if (!dateString) return 'N/A';
     
-    const diffMs = vietnamNow - vietnamDate;
+    // Handle different date formats
+    let date;
+    if (typeof dateString === 'string') {
+        if (dateString.includes(' ')) {
+            // Format: "2025-09-12 08:26:43" - treat as Vietnam time
+            const [datePart, timePart] = dateString.split(' ');
+            const [year, month, day] = datePart.split('-');
+            const [hour, minute, second] = timePart.split(':');
+            
+            // Create date in Vietnam timezone (no adjustment needed)
+            date = new Date(year, month - 1, day, hour, minute, second);
+        } else {
+            date = new Date(dateString);
+        }
+    } else {
+        date = new Date(dateString);
+    }
+    
+    if (isNaN(date.getTime())) return 'Thời gian không hợp lệ';
+    
+    const now = new Date();
+    const diffMs = now - date;
     const diffMins = Math.floor(diffMs / 60000);
     const diffHours = Math.floor(diffMins / 60);
     const diffDays = Math.floor(diffHours / 24);
@@ -407,7 +442,14 @@ function getVietnamTimeAgo(dateString) {
     if (diffMins < 60) return `${diffMins} phút trước`;
     if (diffHours < 24) return `${diffHours} giờ trước`;
     if (diffDays < 7) return `${diffDays} ngày trước`;
-    return vietnamDate.toLocaleDateString('vi-VN');
+    
+    const options = {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+    };
+    
+    return date.toLocaleDateString('vi-VN', options);
 }
 
 // Load recent activities on page load

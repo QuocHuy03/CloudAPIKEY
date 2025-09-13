@@ -169,7 +169,7 @@
                                     <td>{{ loop.index }}</td>
                                     <td>
                                         <div class="time-display" data-time="{{ log.created_at }}">
-                                            <small class="text-primary fw-bold">{{ log.created_at }}</small>
+                                            <small class="text-primary fw-bold" id="time-{{ log.id }}">{{ log.created_at }}</small>
                                             <small class="text-muted">Loading...</small>
                                         </div>
                                     </td>
@@ -393,5 +393,19 @@ updateTable();
 $(document).ready(function() {
     updateVietnamTimes();
 });
+
+// Function to update Vietnam times in the table
+function updateVietnamTimes() {
+    $('.time-display').each(function() {
+        const timeElement = $(this).find('small.text-primary');
+        const timeString = $(this).data('time');
+        
+        if (timeString) {
+            const formattedTime = formatVietnamTime(timeString);
+            timeElement.text(formattedTime);
+            $(this).find('small.text-muted').text(''); // Clear loading text
+        }
+    });
+}
 </script>
 {% endblock %}
