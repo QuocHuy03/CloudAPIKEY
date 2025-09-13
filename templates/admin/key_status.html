@@ -1,0 +1,188 @@
+{% extends "admin/base.html" %}
+
+{% block title %}Chi tiết Key - Admin Panel{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header">
+                <h4 class="card-title mb-0">
+                    <i class="fas fa-info-circle me-2"></i>Chi tiết Key
+                </h4>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6 class="text-muted">Key</h6>
+                        <p class="h5">
+                            <code class="text-primary">{{ key_info.key }}</code>
+                        </p>
+                    </div>
+                    <div class="col-md-6">
+                        <h6 class="text-muted">Module</h6>
+                        <p>
+                            <span class="badge bg-info fs-6">{{ key_info.module.replace('_', ' ').title() }}</span>
+                        </p>
+                    </div>
+                </div>
+                
+                <hr>
+                
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6 class="text-muted">Device ID</h6>
+                        <p>
+                            {% if key_info.device_id %}
+                                <code>{{ key_info.device_id }}</code>
+                            {% else %}
+                                <span class="text-muted">Chưa gán</span>
+                            {% endif %}
+                        </p>
+                    </div>
+                    <div class="col-md-6">
+                        <h6 class="text-muted">Trạng thái</h6>
+                        <p>
+                            <span class="badge {% if key_info.status == 'active' %}bg-success{% else %}bg-secondary{% endif %} fs-6">
+                                {{ key_info.status.title() }}
+                            </span>
+                        </p>
+                    </div>
+                </div>
+                
+                <hr>
+                
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6 class="text-muted">Ngày hết hạn</h6>
+                        <p>
+                            {% if key_info.expires_formatted %}
+                                {{ key_info.expires_formatted }}
+                                {% if key_info.is_expired %}
+                                    <br><span class="badge bg-warning">Đã hết hạn</span>
+                                {% endif %}
+                            {% else %}
+                                <span class="text-muted">Không giới hạn</span>
+                            {% endif %}
+                        </p>
+                    </div>
+                    <div class="col-md-6">
+                        <h6 class="text-muted">Số lượt sử dụng</h6>
+                        <p>
+                            {% if key_info.max_usage %}
+                                <div class="progress mb-2" style="height: 25px;">
+                                    {% set usage_percent = (key_info.usage_count / key_info.max_usage * 100) if key_info.max_usage > 0 else 0 %}
+                                    <div class="progress-bar {% if usage_percent >= 100 %}bg-danger{% elif usage_percent >= 80 %}bg-warning{% else %}bg-success{% endif %}" 
+                                         style="width: {{ usage_percent }}%">
+                                        {{ key_info.usage_count }}/{{ key_info.max_usage }}
+                                    </div>
+                                </div>
+                                <small class="text-muted">
+                                    Còn lại: 
+                                    <span class="badge {% if key_info.remaining > 0 %}bg-success{% else %}bg-danger{% endif %}">
+                                        {{ key_info.remaining }}
+                                    </span>
+                                </small>
+                            {% else %}
+                                <span class="h5">{{ key_info.usage_count }}</span>
+                                <br><span class="badge bg-info">Unlimited</span>
+                            {% endif %}
+                        </p>
+                    </div>
+                </div>
+                
+                <hr>
+                
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6 class="text-muted">Tổng quan</h6>
+                        <div class="list-group list-group-flush">
+                            <div class="list-group-item d-flex justify-content-between align-items-center px-0">
+                                <span>Trạng thái hoạt động</span>
+                                <span class="badge {% if key_info.status == 'active' %}bg-success{% else %}bg-secondary{% endif %}">
+                                    {{ key_info.status.title() }}
+                                </span>
+                            </div>
+                            <div class="list-group-item d-flex justify-content-between align-items-center px-0">
+                                <span>Hết hạn</span>
+                                <span class="badge {% if key_info.is_expired %}bg-warning{% else %}bg-success{% endif %}">
+                                    {% if key_info.is_expired %}Đã hết hạn{% else %}Còn hiệu lực{% endif %}
+                                </span>
+                            </div>
+                            <div class="list-group-item d-flex justify-content-between align-items-center px-0">
+                                <span>Giới hạn sử dụng</span>
+                                <span class="badge {% if key_info.max_usage and key_info.usage_count >= key_info.max_usage %}bg-danger{% elif key_info.max_usage %}bg-warning{% else %}bg-info{% endif %}">
+                                    {% if key_info.max_usage and key_info.usage_count >= key_info.max_usage %}
+                                        Đã hết lượt
+                                    {% elif key_info.max_usage %}
+                                        Còn {{ key_info.remaining }} lượt
+                                    {% else %}
+                                        Không giới hạn
+                                    {% endif %}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <h6 class="text-muted">Thao tác</h6>
+                        <div class="d-grid gap-2">
+                            <a href="{{ url_for('admin.edit_key', module=key_info.module, key=key_info.key) }}" class="btn btn-warning">
+                                <i class="fas fa-edit me-2"></i>Chỉnh sửa
+                            </a>
+                            <button class="btn btn-danger" onclick="deleteKey('{{ key_info.key }}', '{{ key_info.module }}')">
+                                <i class="fas fa-trash me-2"></i>Xóa Key
+                            </button>
+                            <a href="{{ url_for('admin.keys_list', module=key_info.module) }}" class="btn btn-secondary">
+                                <i class="fas fa-arrow-left me-2"></i>Quay lại danh sách
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Usage History (Placeholder) -->
+<div class="row justify-content-center mt-4">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-chart-line me-2"></i>Lịch sử sử dụng
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="text-center text-muted py-4">
+                    <i class="fas fa-chart-bar fa-3x mb-3"></i>
+                    <p>Chức năng theo dõi lịch sử sử dụng sẽ được thêm trong phiên bản tiếp theo.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function deleteKey(key, module) {
+    if (confirm(`Bạn có chắc chắn muốn xóa key "${key}"?`)) {
+        $.ajax({
+            url: `/admin/keys/${module}/${key}/delete`,
+            method: 'POST',
+            success: function(response) {
+                if (response.success) {
+                    alert('Xóa key thành công!');
+                    window.location.href = '{{ url_for("admin.keys_list") }}';
+                } else {
+                    alert('Lỗi: ' + response.message);
+                }
+            },
+            error: function() {
+                alert('Có lỗi xảy ra khi xóa key!');
+            }
+        });
+    }
+}
+</script>
+{% endblock %}

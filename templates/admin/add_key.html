@@ -1,0 +1,246 @@
+{% extends "admin/base.html" %}
+
+{% block title %}Thêm Key mới - Admin Panel{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header">
+                <h4 class="card-title mb-0">
+                    <i class="fas fa-plus me-2"></i>Thêm Key mới
+                </h4>
+            </div>
+            <div class="card-body">
+                <form id="addKeyForm">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="key" class="form-label">Key <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="key" name="key" required>
+                            <div class="form-text">Nhập key duy nhất cho module</div>
+                        </div>
+                        
+                        <div class="col-md-6 mb-3">
+                            <label for="module" class="form-label">Module <span class="text-danger">*</span></label>
+                            <select class="form-select" id="module" name="module" required>
+                                <option value="">Chọn module</option>
+                                {% for module in modules %}
+                                <option value="{{ module }}">{{ module.replace('_', ' ').title() }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="device_id" class="form-label">Device ID</label>
+                            <input type="text" class="form-control" id="device_id" name="device_id">
+                            <div class="form-text">Để trống nếu chưa gán thiết bị</div>
+                        </div>
+                        
+                        <div class="col-md-6 mb-3">
+                            <label for="status" class="form-label">Trạng thái</label>
+                            <select class="form-select" id="status" name="status">
+                                <option value="active" selected>Active</option>
+                                <option value="inactive">Inactive</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="expires" class="form-label">Ngày hết hạn</label>
+                            <input type="date" class="form-control" id="expires" name="expires">
+                            <div class="form-text">Định dạng: MM/DD/YYYY</div>
+                        </div>
+                        
+                        <div class="col-md-6 mb-3">
+                            <label for="max_usage" class="form-label">Số lượt tối đa</label>
+                            <input type="number" class="form-control" id="max_usage" name="max_usage" min="1">
+                            <div class="form-text">Để trống nếu không giới hạn</div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="usage_count" class="form-label">Số lượt đã sử dụng</label>
+                            <input type="number" class="form-control" id="usage_count" name="usage_count" value="0" min="0">
+                        </div>
+                        
+                        <div class="col-md-6 mb-3">
+                            <label for="note" class="form-label">Ghi chú</label>
+                            <input type="text" class="form-control" id="note" name="note" placeholder="Nhập ghi chú cho key...">
+                            <div class="form-text">Ghi chú tùy chọn</div>
+                        </div>
+                    </div>
+                    
+                    <div class="d-flex justify-content-between">
+                        <a href="{{ url_for('admin.keys_list') }}" class="btn btn-secondary">
+                            <i class="fas fa-arrow-left me-2"></i>Quay lại
+                        </a>
+                        <button type="submit" class="btn btn-success">
+                            <i class="fas fa-save me-2"></i>Thêm Key
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Preview Card -->
+<div class="row justify-content-center mt-4">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-eye me-2"></i>Xem trước
+                </h5>
+            </div>
+            <div class="card-body">
+                <div id="previewContent">
+                    <p class="text-muted text-center">Nhập thông tin key để xem trước</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // Auto-update preview when form changes
+    $('#addKeyForm input, #addKeyForm select').on('input change', updatePreview);
+    
+    // Form submission
+    $('#addKeyForm').on('submit', function(e) {
+        e.preventDefault();
+        
+        const formData = {
+            key: $('#key').val().trim(),
+            module: $('#module').val(),
+            device_id: $('#device_id').val().trim() || null,
+            status: $('#status').val(),
+            expires: $('#expires').val() || null,
+            max_usage: $('#max_usage').val() ? parseInt($('#max_usage').val()) : null,
+            usage_count: parseInt($('#usage_count').val()) || 0,
+            note: $('#note').val().trim() || null
+        };
+        
+        // Validation
+        if (!formData.key) {
+            alert('Vui lòng nhập key!');
+            return;
+        }
+        
+        if (!formData.module) {
+            alert('Vui lòng chọn module!');
+            return;
+        }
+        
+        // Show loading
+        const submitBtn = $('button[type="submit"]');
+        const originalText = submitBtn.html();
+        submitBtn.html('<i class="fas fa-spinner fa-spin me-2"></i>Đang thêm...').prop('disabled', true);
+        
+        // Submit form
+        $.ajax({
+            url: '{{ url_for("admin.add_key") }}',
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify(formData),
+            success: function(response) {
+                if (response.success) {
+                    alert('Thêm key thành công!');
+                    window.location.href = '{{ url_for("admin.keys_list") }}';
+                } else {
+                    alert('Lỗi: ' + response.message);
+                }
+            },
+            error: function() {
+                alert('Có lỗi xảy ra khi thêm key!');
+            },
+            complete: function() {
+                submitBtn.html(originalText).prop('disabled', false);
+            }
+        });
+    });
+});
+
+function updatePreview() {
+    const key = $('#key').val();
+    const module = $('#module').val();
+    const device_id = $('#device_id').val();
+    const status = $('#status').val();
+    const expires = $('#expires').val();
+    const max_usage = $('#max_usage').val();
+    const usage_count = $('#usage_count').val() || 0;
+    const note = $('#note').val();
+    
+    if (!key || !module) {
+        $('#previewContent').html('<p class="text-muted text-center">Nhập thông tin key để xem trước</p>');
+        return;
+    }
+    
+    const expiresFormatted = expires ? new Date(expires).toLocaleDateString('vi-VN') : 'Không giới hạn';
+    const remaining = max_usage ? (parseInt(max_usage) - parseInt(usage_count)) : 'unlimited';
+    
+    const previewHtml = `
+        <div class="row">
+            <div class="col-md-6">
+                <strong>Key:</strong><br>
+                <code class="text-primary">${key}</code>
+            </div>
+            <div class="col-md-6">
+                <strong>Module:</strong><br>
+                <span class="badge bg-info">${module.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}</span>
+            </div>
+        </div>
+        <hr>
+        <div class="row">
+            <div class="col-md-6">
+                <strong>Device ID:</strong><br>
+                ${device_id ? `<code>${device_id}</code>` : '<span class="text-muted">Chưa gán</span>'}
+            </div>
+            <div class="col-md-6">
+                <strong>Trạng thái:</strong><br>
+                <span class="badge ${status === 'active' ? 'bg-success' : 'bg-secondary'}">${status === 'active' ? 'Active' : 'Inactive'}</span>
+            </div>
+        </div>
+        <hr>
+        <div class="row">
+            <div class="col-md-6">
+                <strong>Hết hạn:</strong><br>
+                ${expiresFormatted}
+            </div>
+            <div class="col-md-6">
+                <strong>Sử dụng:</strong><br>
+                ${max_usage ? `${usage_count}/${max_usage} (còn lại: ${remaining})` : `${usage_count} (unlimited)`}
+            </div>
+        </div>
+        <hr>
+        <div class="row">
+            <div class="col-12">
+                <strong>Ghi chú:</strong><br>
+                ${note ? `<span class="text-info">${note}</span>` : '<span class="text-muted">Không có ghi chú</span>'}
+            </div>
+        </div>
+    `;
+    
+    $('#previewContent').html(previewHtml);
+}
+
+// Format date input
+$('#expires').on('change', function() {
+    const date = new Date($(this).val());
+    if (date) {
+        // Convert to MM/DD/YYYY format for display
+        const formatted = (date.getMonth() + 1).toString().padStart(2, '0') + '/' + 
+                         date.getDate().toString().padStart(2, '0') + '/' + 
+                         date.getFullYear();
+        $(this).attr('data-formatted', formatted);
+    }
+});
+</script>
+{% endblock %}

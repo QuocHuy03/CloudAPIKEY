@@ -1,0 +1,346 @@
+{% extends "admin/base.html" %}
+
+{% block title %}Dashboard - Admin Panel{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h1 class="h3 mb-4">
+            <i class="fas fa-tachometer-alt me-2"></i>Dashboard
+        </h1>
+    </div>
+</div>
+
+<!-- Statistics Cards -->
+<div class="row mb-4">
+    {% for module, stat in stats.items() %}
+    <div class="col-lg-2 col-md-4 col-sm-6 mb-3">
+        <div class="card bg-primary text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="card-title text-uppercase">{{ module.replace('_', ' ').title() }}</h6>
+                        <h4 class="mb-0">{{ stat.total }}</h4>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-key fa-2x opacity-75"></i>
+                    </div>
+                </div>
+            </div>
+            <div class="card-footer bg-primary bg-opacity-75">
+                <small>
+                    <i class="fas fa-check-circle me-1"></i>{{ stat.active }} Active
+                    <span class="ms-2">
+                        <i class="fas fa-times-circle me-1"></i>{{ stat.expired }} Expired
+                    </span>
+                </small>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Quick Actions -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-bolt me-2"></i>Thao tác nhanh
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-3 mb-2">
+                        <a href="{{ url_for('admin.add_key') }}" class="btn btn-success w-100">
+                            <i class="fas fa-plus me-2"></i>Thêm Key mới
+                        </a>
+                    </div>
+                    <div class="col-md-3 mb-2">
+                        <a href="{{ url_for('admin.keys_list') }}" class="btn btn-info w-100">
+                            <i class="fas fa-list me-2"></i>Xem tất cả Keys
+                        </a>
+                    </div>
+                    <div class="col-md-3 mb-2">
+                        <button class="btn btn-warning w-100" onclick="refreshStats()">
+                            <i class="fas fa-sync-alt me-2"></i>Làm mới thống kê
+                        </button>
+                    </div>
+                    <div class="col-md-3 mb-2">
+                        <button class="btn btn-secondary w-100" onclick="exportData()">
+                            <i class="fas fa-download me-2"></i>Xuất dữ liệu
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Module Overview -->
+<div class="row">
+    {% for module in modules %}
+    <div class="col-lg-4 col-md-6 mb-4">
+        <div class="card h-100">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h6 class="card-title mb-0">
+                    <i class="fas fa-cube me-2"></i>{{ module.replace('_', ' ').title() }}
+                </h6>
+                <a href="{{ url_for('admin.keys_list', module=module) }}" class="btn btn-sm btn-outline-primary">
+                    <i class="fas fa-eye me-1"></i>Xem
+                </a>
+            </div>
+            <div class="card-body">
+                {% set module_stat = stats[module] %}
+                <div class="row text-center">
+                    <div class="col-3">
+                        <div class="border-end">
+                            <h5 class="text-primary mb-0">{{ module_stat.total }}</h5>
+                            <small class="text-muted">Tổng</small>
+                        </div>
+                    </div>
+                    <div class="col-3">
+                        <div class="border-end">
+                            <h5 class="text-success mb-0">{{ module_stat.active }}</h5>
+                            <small class="text-muted">Active</small>
+                        </div>
+                    </div>
+                    <div class="col-3">
+                        <div class="border-end">
+                            <h5 class="text-warning mb-0">{{ module_stat.expired }}</h5>
+                            <small class="text-muted">Hết hạn</small>
+                        </div>
+                    </div>
+                    <div class="col-3">
+                        <h5 class="text-danger mb-0">{{ module_stat.used_up }}</h5>
+                        <small class="text-muted">Hết lượt</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Recent Activity -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-history me-2"></i>Hoạt động gần đây
+                </h5>
+                <div>
+                    <button class="btn btn-sm btn-outline-secondary me-2" onclick="refreshRecentActivities()" title="Làm mới">
+                        <i class="fas fa-sync-alt"></i>
+                    </button>
+                    <a href="{{ url_for('admin.activity_log') }}" class="btn btn-sm btn-outline-primary">
+                        <i class="fas fa-eye me-1"></i>Xem tất cả
+                    </a>
+                </div>
+            </div>
+            <div class="card-body p-0">
+                <div id="recentActivities">
+                    <div class="text-center py-4">
+                        <i class="fas fa-spinner fa-spin fa-2x mb-3"></i>
+                        <p>Đang tải hoạt động gần đây...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.recent-activities-table {
+    font-size: 0.9rem;
+}
+
+.recent-activities-table th {
+    background-color: #f8f9fa;
+    border-bottom: 2px solid #dee2e6;
+    font-weight: 600;
+    color: #495057;
+}
+
+.recent-activities-table td {
+    vertical-align: middle;
+    padding: 0.75rem 0.5rem;
+}
+
+.recent-activities-table .badge {
+    font-size: 0.75rem;
+}
+
+.recent-activities-table code {
+    font-size: 0.8rem;
+    padding: 0.2rem 0.4rem;
+    border-radius: 0.25rem;
+}
+
+.time-display {
+    line-height: 1.2;
+}
+
+.time-display .fw-bold {
+    font-size: 0.85rem;
+}
+
+.time-display .text-muted {
+    font-size: 0.75rem;
+}
+
+.table-hover tbody tr:hover {
+    background-color: rgba(0, 123, 255, 0.05);
+}
+
+.btn-sm {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function refreshStats() {
+    $.get('{{ url_for("admin.api_stats") }}', function(data) {
+        if (data.success) {
+            location.reload();
+        }
+    });
+}
+
+function exportData() {
+    // Placeholder for export functionality
+    alert('Chức năng xuất dữ liệu sẽ được thêm trong phiên bản tiếp theo.');
+}
+
+function loadRecentActivities() {
+    $.get('{{ url_for("admin.api_activity") }}?limit=10', function(data) {
+        if (data.success && data.data.length > 0) {
+            let html = `
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0 recent-activities-table">
+                        <thead class="table-light">
+                            <tr>
+                                <th width="50" class="text-center">STT</th>
+                                <th style="width: 140px;" class="text-center">
+                                    <i class="fas fa-clock me-1"></i>Thời gian
+                                </th>
+                                <th style="width: 100px;" class="text-center">
+                                    <i class="fas fa-tag me-1"></i>Hành động
+                                </th>
+                                <th style="width: 150px;" class="text-center">
+                                    <i class="fas fa-key me-1"></i>Key
+                                </th>
+                                <th style="width: 100px;" class="text-center">
+                                    <i class="fas fa-cube me-1"></i>Module
+                                </th>
+                                <th style="width: 120px;" class="text-center">
+                                    <i class="fas fa-map-marker-alt me-1"></i>IP Address
+                                </th>
+                                <th style="width: 80px;" class="text-center">
+                                    <i class="fas fa-info-circle me-1"></i>Chi tiết
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody>
+            `;
+            
+            data.data.forEach((activity, index) => {
+                const actionBadge = getActionBadge(activity.action);
+                const formattedTime = formatVietnamTime(activity.created_at);
+                const timeAgo = getVietnamTimeAgo(activity.created_at);
+                const keyDisplay = activity.key_value ? 
+                    `<code class="text-primary">${activity.key_value.substring(0, 15)}${activity.key_value.length > 15 ? '...' : ''}</code>` : 
+                    '<span class="text-muted">-</span>';
+                const moduleDisplay = activity.module ? 
+                    `<span class="badge bg-info">${activity.module.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}</span>` : 
+                    '<span class="text-muted">-</span>';
+                const ipDisplay = activity.user_ip ? 
+                    `<code class="text-success">${activity.user_ip}</code>` : 
+                    '<span class="text-muted">-</span>';
+                
+                html += `
+                    <tr>
+                        <td class="text-center">
+                            <span class="badge bg-secondary">${index + 1}</span>
+                        </td>
+                        <td class="text-center">
+                            <div class="d-flex flex-column time-display">
+                                <small class="text-primary fw-bold">${formattedTime}</small>
+                            </div>
+                        </td>
+                        <td class="text-center">${actionBadge}</td>
+                        <td class="text-center">${keyDisplay}</td>
+                        <td class="text-center">${moduleDisplay}</td>
+                        <td class="text-center">${ipDisplay}</td>
+                        <td class="text-center">
+                            <button class="btn btn-sm btn-outline-info" onclick="viewActivityDetail(${activity.id})" title="Xem chi tiết">
+                                <i class="fas fa-info-circle"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            });
+            
+            html += `
+                        </tbody>
+                    </table>
+                </div>
+            `;
+            $('#recentActivities').html(html);
+        } else {
+            $('#recentActivities').html(`
+                <div class="text-center text-muted py-5">
+                    <i class="fas fa-info-circle fa-3x mb-3"></i>
+                    <h6>Chưa có hoạt động nào</h6>
+                    <p class="mb-0">Các hoạt động quản lý key sẽ hiển thị ở đây.</p>
+                </div>
+            `);
+        }
+    }).fail(function() {
+        $('#recentActivities').html(`
+            <div class="text-center text-danger py-5">
+                <i class="fas fa-exclamation-triangle fa-3x mb-3"></i>
+                <h6>Lỗi tải dữ liệu</h6>
+                <p class="mb-0">Không thể tải hoạt động gần đây.</p>
+            </div>
+        `);
+    });
+}
+
+function refreshRecentActivities() {
+    $('#recentActivities').html(`
+        <div class="text-center py-4">
+            <i class="fas fa-spinner fa-spin fa-2x mb-3"></i>
+            <p>Đang làm mới...</p>
+        </div>
+    `);
+    loadRecentActivities();
+}
+
+function viewActivityDetail(activityId) {
+    // Placeholder for activity detail modal
+    showInfo(`Xem chi tiết hoạt động ID: ${activityId}`);
+}
+
+function getActionBadge(action) {
+    const badges = {
+        'CREATE_KEY': '<span class="badge bg-success"><i class="fas fa-plus me-1"></i>Tạo</span>',
+        'UPDATE_KEY': '<span class="badge bg-warning"><i class="fas fa-edit me-1"></i>Cập nhật</span>',
+        'DELETE_KEY': '<span class="badge bg-danger"><i class="fas fa-trash me-1"></i>Xóa</span>',
+        'VIEW_KEY': '<span class="badge bg-info"><i class="fas fa-eye me-1"></i>Xem</span>'
+    };
+    return badges[action] || `<span class="badge bg-secondary">${action}</span>`;
+}
+
+// Load recent activities on page load
+$(document).ready(function() {
+    loadRecentActivities();
+});
+</script>
+{% endblock %}

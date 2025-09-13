@@ -1,0 +1,440 @@
+{% extends "admin/base.html" %}
+
+{% block title %}Danh sách Keys - Admin Panel{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1 class="h3 mb-0">
+                <i class="fas fa-list me-2"></i>Danh sách Keys
+            </h1>
+            <a href="{{ url_for('admin.add_key') }}" class="btn btn-success">
+                <i class="fas fa-plus me-2"></i>Thêm Key mới
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Filter Section -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <div class="row align-items-center">
+                    <div class="col-md-4">
+                        <label for="moduleFilter" class="form-label">Lọc theo Module:</label>
+                        <select class="form-select" id="moduleFilter" onchange="filterByModule()">
+                            <option value="">Tất cả modules</option>
+                            {% for module in modules %}
+                            <option value="{{ module }}" {% if current_module == module %}selected{% endif %}>
+                                {{ module.replace('_', ' ').title() }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label for="statusFilter" class="form-label">Lọc theo trạng thái:</label>
+                        <select class="form-select" id="statusFilter" onchange="filterByStatus()">
+                            <option value="">Tất cả trạng thái</option>
+                            <option value="active">Active</option>
+                            <option value="inactive">Inactive</option>
+                            <option value="expired">Hết hạn</option>
+                            <option value="used_up">Hết lượt</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label for="searchInput" class="form-label">Tìm kiếm:</label>
+                        <div class="input-group">
+                            <input type="text" class="form-control" id="searchInput" placeholder="Tìm theo key, device_id...">
+                            <button class="btn btn-outline-secondary" type="button" onclick="searchKeys()">
+                                <i class="fas fa-search"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Keys Table -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-table me-2"></i>Danh sách Keys
+                    <span class="badge bg-primary ms-2" id="totalKeys">{{ keys|length }}</span>
+                </h5>
+                <div>
+                    <button class="btn btn-sm btn-outline-primary" onclick="refreshTable()">
+                        <i class="fas fa-sync-alt me-1"></i>Làm mới
+                    </button>
+                    <button class="btn btn-sm btn-outline-success" onclick="exportTable()">
+                        <i class="fas fa-download me-1"></i>Xuất Excel
+                    </button>
+                </div>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0" id="keysTable">
+                        <thead class="table-dark">
+                            <tr>
+                                <th width="50">STT</th>
+                                <th>Key</th>
+                                <th>Module</th>
+                                <th>Device ID</th>
+                                <th>Trạng thái</th>
+                                <th>Hết hạn</th>
+                                <th>Sử dụng</th>
+                                <th>Còn lại</th>
+                                <th>Hoạt động gần đây</th>
+                                <th>Ghi chú</th>
+                                <th>Thao tác</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for key in keys %}
+                            <tr data-key="{{ key.key }}" data-module="{{ key.module }}">
+                                <td class="text-center">
+                                    <span class="badge bg-secondary">{{ loop.index }}</span>
+                                </td>
+                                <td>
+                                    <code class="text-primary">{{ key.key[:20] }}{% if key.key|length > 20 %}...{% endif %}</code>
+                                </td>
+                                <td>
+                                    <span class="badge bg-info">{{ key.module.replace('_', ' ').title() }}</span>
+                                </td>
+                                <td>
+                                    {% if key.device_id %}
+                                        <code>{{ key.device_id[:15] }}{% if key.device_id|length > 15 %}...{% endif %}</code>
+                                    {% else %}
+                                        <span class="text-muted">Chưa gán</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if key.status == 'active' %}
+                                        <span class="badge bg-success">Active</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">Inactive</span>
+                                    {% endif %}
+                                    {% if key.is_expired %}
+                                        <br><span class="badge bg-warning mt-1">Hết hạn</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if key.expires_formatted %}
+                                        {{ key.expires_formatted }}
+                                        {% if key.is_expired %}
+                                            <br><small class="text-danger">Đã hết hạn</small>
+                                        {% endif %}
+                                    {% else %}
+                                        <span class="text-muted">Không giới hạn</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if key.max_usage %}
+                                        <div class="progress" style="height: 20px;">
+                                            {% set usage_percent = (key.usage_count / key.max_usage * 100) if key.max_usage > 0 else 0 %}
+                                            {% if usage_percent >= 100 %}
+                                                {% set progress_class = 'bg-danger' %}
+                                            {% elif usage_percent >= 80 %}
+                                                {% set progress_class = 'bg-warning' %}
+                                            {% else %}
+                                                {% set progress_class = 'bg-success' %}
+                                            {% endif %}
+                                            <div class="progress-bar {{ progress_class }}" style="width: {{ usage_percent }}%">
+                                                {{ key.usage_count }}/{{ key.max_usage }}
+                                            </div>
+                                        </div>
+                                    {% else %}
+                                        <span class="text-muted">{{ key.usage_count }} (unlimited)</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if key.remaining == 'unlimited' %}
+                                        <span class="badge bg-info">Unlimited</span>
+                                    {% else %}
+                                        <span class="badge {% if key.remaining > 0 %}bg-success{% else %}bg-danger{% endif %}">
+                                            {{ key.remaining }}
+                                        </span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div class="time-display" data-time="{{ key.updated_at or key.created_at }}">
+                                        <small class="text-primary fw-bold">{{ key.updated_at or key.created_at }}</small>
+                                        <small class="text-muted">Đang cập nhật...</small>
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="text-muted">{{ key.note or 'Không có ghi chú' }}</span>
+                                </td>
+                                <td>
+                                    <div class="btn-group btn-group-sm" role="group">
+                                        <button class="btn btn-outline-info" onclick="viewKeyStatus('{{ key.key }}', '{{ key.module }}')" title="Xem chi tiết">
+                                            <i class="fas fa-eye"></i>
+                                        </button>
+                                        <button class="btn btn-outline-warning" onclick="editKey('{{ key.key }}', '{{ key.module }}')" title="Chỉnh sửa">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                        <button class="btn btn-outline-danger" onclick="deleteKey('{{ key.key }}', '{{ key.module }}')" title="Xóa">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Pagination -->
+<div class="row mt-4">
+    <div class="col-12">
+        <nav aria-label="Page navigation">
+            <ul class="pagination justify-content-center" id="pagination">
+                <!-- Pagination will be generated by JavaScript -->
+            </ul>
+        </nav>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let allKeys = {{ keys|tojson }};
+let filteredKeys = allKeys;
+let currentPage = 1;
+const itemsPerPage = 10;
+
+function filterByModule() {
+    const module = document.getElementById('moduleFilter').value;
+    if (module) {
+        filteredKeys = allKeys.filter(key => key.module === module);
+    } else {
+        filteredKeys = allKeys;
+    }
+    currentPage = 1;
+    updateTable();
+}
+
+function filterByStatus() {
+    const status = document.getElementById('statusFilter').value;
+    if (status) {
+        filteredKeys = filteredKeys.filter(key => {
+            switch(status) {
+                case 'active':
+                    return key.status === 'active';
+                case 'inactive':
+                    return key.status === 'inactive';
+                case 'expired':
+                    return key.is_expired;
+                case 'used_up':
+                    return key.max_usage && key.usage_count >= key.max_usage;
+                default:
+                    return true;
+            }
+        });
+    }
+    currentPage = 1;
+    updateTable();
+}
+
+function searchKeys() {
+    const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+    if (searchTerm) {
+        filteredKeys = allKeys.filter(key => 
+            key.key.toLowerCase().includes(searchTerm) ||
+            (key.device_id && key.device_id.toLowerCase().includes(searchTerm))
+        );
+    } else {
+        filteredKeys = allKeys;
+    }
+    currentPage = 1;
+    updateTable();
+}
+
+function updateTable() {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    const pageKeys = filteredKeys.slice(startIndex, endIndex);
+    
+    // Update total count
+    document.getElementById('totalKeys').textContent = filteredKeys.length;
+    
+    // Update table body
+    const tbody = document.querySelector('#keysTable tbody');
+    tbody.innerHTML = '';
+    
+    pageKeys.forEach((key, index) => {
+        const row = createTableRow(key, startIndex + index + 1);
+        tbody.appendChild(row);
+    });
+    
+    // Update pagination
+    updatePagination();
+    
+    // Update Vietnam times
+    updateVietnamTimes();
+}
+
+function createTableRow(key, index) {
+    const row = document.createElement('tr');
+    row.setAttribute('data-key', key.key);
+    row.setAttribute('data-module', key.module);
+    
+    const usagePercent = key.max_usage ? (key.usage_count / key.max_usage * 100) : 0;
+    const progressBarClass = usagePercent >= 100 ? 'bg-danger' : (usagePercent >= 80 ? 'bg-warning' : 'bg-success');
+    
+    row.innerHTML = `
+        <td class="text-center">
+            <span class="badge bg-secondary">${index}</span>
+        </td>
+        <td>
+            <code class="text-primary">${key.key.substring(0, 20)}${key.key.length > 20 ? '...' : ''}</code>
+        </td>
+        <td><span class="badge bg-info">${key.module.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}</span></td>
+        <td>
+            ${key.device_id ? 
+                `<code>${key.device_id.substring(0, 15)}${key.device_id.length > 15 ? '...' : ''}</code>` : 
+                '<span class="text-muted">Chưa gán</span>'
+            }
+        </td>
+        <td>
+            <span class="badge ${key.status === 'active' ? 'bg-success' : 'bg-secondary'}">${key.status === 'active' ? 'Active' : 'Inactive'}</span>
+            ${key.is_expired ? '<br><span class="badge bg-warning mt-1">Hết hạn</span>' : ''}
+        </td>
+        <td>
+            ${key.expires_formatted || '<span class="text-muted">Không giới hạn</span>'}
+            ${key.is_expired ? '<br><small class="text-danger">Đã hết hạn</small>' : ''}
+        </td>
+        <td>
+            ${key.max_usage ? 
+                `<div class="progress" style="height: 20px;">
+                    <div class="progress-bar ${progressBarClass}" style="width: ${usagePercent}%">
+                        ${key.usage_count}/${key.max_usage}
+                    </div>
+                </div>` :
+                `<span class="text-muted">${key.usage_count} (unlimited)</span>`
+            }
+        </td>
+        <td>
+            <span class="badge ${key.remaining === 'unlimited' ? 'bg-info' : (key.remaining > 0 ? 'bg-success' : 'bg-danger')}">
+                ${key.remaining === 'unlimited' ? 'Unlimited' : key.remaining}
+            </span>
+        </td>
+        <td>
+            <div class="time-display" data-time="${key.updated_at || key.created_at}">
+                <small class="text-primary fw-bold">${key.updated_at || key.created_at}</small>
+                <small class="text-muted">Đang cập nhật...</small>
+            </div>
+        </td>
+        <td>
+            <span class="text-muted">${key.note || 'Không có ghi chú'}</span>
+        </td>
+        <td>
+            <div class="btn-group btn-group-sm" role="group">
+                <button class="btn btn-outline-info" onclick="viewKeyStatus('${key.key}', '${key.module}')" title="Xem chi tiết">
+                    <i class="fas fa-eye"></i>
+                </button>
+                <button class="btn btn-outline-warning" onclick="editKey('${key.key}', '${key.module}')" title="Chỉnh sửa">
+                    <i class="fas fa-edit"></i>
+                </button>
+                <button class="btn btn-outline-danger" onclick="deleteKey('${key.key}', '${key.module}')" title="Xóa">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </div>
+        </td>
+    `;
+    
+    return row;
+}
+
+function updatePagination() {
+    const totalPages = Math.ceil(filteredKeys.length / itemsPerPage);
+    const pagination = document.getElementById('pagination');
+    pagination.innerHTML = '';
+    
+    if (totalPages <= 1) return;
+    
+    // Previous button
+    const prevLi = document.createElement('li');
+    prevLi.className = `page-item ${currentPage === 1 ? 'disabled' : ''}`;
+    prevLi.innerHTML = `<a class="page-link" href="#" onclick="changePage(${currentPage - 1})">Trước</a>`;
+    pagination.appendChild(prevLi);
+    
+    // Page numbers
+    for (let i = 1; i <= totalPages; i++) {
+        const li = document.createElement('li');
+        li.className = `page-item ${i === currentPage ? 'active' : ''}`;
+        li.innerHTML = `<a class="page-link" href="#" onclick="changePage(${i})">${i}</a>`;
+        pagination.appendChild(li);
+    }
+    
+    // Next button
+    const nextLi = document.createElement('li');
+    nextLi.className = `page-item ${currentPage === totalPages ? 'disabled' : ''}`;
+    nextLi.innerHTML = `<a class="page-link" href="#" onclick="changePage(${currentPage + 1})">Sau</a>`;
+    pagination.appendChild(nextLi);
+}
+
+function changePage(page) {
+    const totalPages = Math.ceil(filteredKeys.length / itemsPerPage);
+    if (page >= 1 && page <= totalPages) {
+        currentPage = page;
+        updateTable();
+    }
+}
+
+function refreshTable() {
+    location.reload();
+}
+
+function exportTable() {
+    window.location.href = '/admin/keys/export-excel';
+}
+
+function makeVideo(key) {
+    // Redirect to make video page or open in new tab
+    window.open(`/api/make_video_ai?key=${key}`, '_blank');
+}
+
+function viewKeyStatus(key, module) {
+    window.open(`/admin/keys/${module}/${key}/status`, '_blank');
+}
+
+function editKey(key, module) {
+    window.open(`/admin/keys/${module}/${key}/edit`, '_blank');
+}
+
+function deleteKey(key, module) {
+    if (confirm(`Bạn có chắc chắn muốn xóa key "${key}"?`)) {
+        $.ajax({
+            url: `/admin/keys/${module}/${key}/delete`,
+            method: 'POST',
+            success: function(response) {
+                if (response.success) {
+                    showSuccess('Xóa key thành công!');
+                    setTimeout(() => {
+                        location.reload();
+                    }, 1500);
+                } else {
+                    showError('Lỗi: ' + response.message);
+                }
+            },
+            error: function() {
+                showError('Có lỗi xảy ra khi xóa key!');
+            }
+        });
+    }
+}
+
+// Initialize table
+updateTable();
+</script>
+{% endblock %}

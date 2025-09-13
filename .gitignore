@@ -1,0 +1,82 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual Environment
+venv/
+env/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Keys and sensitive files
+*_key.txt
+*_keys.txt
+expired_keys.txt
+proxies.txt
+gemini_key*.txt
+suno_key.txt
+clone_voice_key.txt
+
+# Temporary files
+temp/
+tmp/
+*.tmp
+*.temp
+
+# Uploads and downloads
+uploads/*
+downloads/*
+!uploads/.gitkeep
+!downloads/.gitkeep
+
+# Backup files
+*_backup_*
+csv_final_backup_*/
+
+# Test files
+test_*.py
+*_test.py
+debug_*.py
+check_*.py
+migrate_*.py
+import_*.py
+add_*.py
+create_*.py

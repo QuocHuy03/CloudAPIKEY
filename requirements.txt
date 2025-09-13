@@ -1,0 +1,9 @@
+flask>=2.3.0
+pandas>=2.0.0
+requests>=2.31.0
+ffmpeg-python>=0.2.0
+mutagen>=1.47.0
+urllib3>=2.0.0
+gunicorn>=21.0.0
+gevent>=23.0.0
+openpyxl>=3.1.0

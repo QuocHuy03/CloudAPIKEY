@@ -1,0 +1,659 @@
+{% extends "admin/base.html" %}
+
+{% block title %}Activity Log - Admin Panel{% endblock %}
+
+{% block extra_css %}
+<style>
+.activity-table {
+    font-size: 0.9rem;
+}
+
+.activity-table th {
+    background-color: #f8f9fa;
+    border-bottom: 2px solid #dee2e6;
+    font-weight: 600;
+    color: #495057;
+    padding: 1rem 0.75rem;
+    vertical-align: middle;
+}
+
+.activity-table td {
+    vertical-align: middle;
+    padding: 0.75rem;
+    border-bottom: 1px solid #dee2e6;
+}
+
+.activity-table .badge {
+    font-size: 0.75rem;
+    padding: 0.4rem 0.6rem;
+}
+
+.activity-table code {
+    font-size: 0.8rem;
+    padding: 0.3rem 0.5rem;
+    border-radius: 0.25rem;
+    background-color: #f8f9fa;
+}
+
+.time-column {
+    width: 160px;
+    min-width: 160px;
+}
+
+.action-column {
+    width: 120px;
+    min-width: 120px;
+}
+
+.key-column {
+    width: 180px;
+    min-width: 180px;
+}
+
+.module-column {
+    width: 120px;
+    min-width: 120px;
+}
+
+.change-column {
+    width: 100px;
+    min-width: 100px;
+}
+
+.ip-column {
+    width: 130px;
+    min-width: 130px;
+}
+
+.detail-column {
+    width: 80px;
+    min-width: 80px;
+}
+
+.table-hover tbody tr:hover {
+    background-color: rgba(0, 123, 255, 0.05);
+}
+
+.time-display {
+    line-height: 1.3;
+}
+
+.time-display .fw-bold {
+    font-size: 0.85rem;
+    color: #495057;
+}
+
+.time-display .text-muted {
+    font-size: 0.75rem;
+}
+
+.btn-sm {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+}
+
+.table-responsive {
+    border-radius: 0.375rem;
+    overflow: hidden;
+}
+
+.card-header {
+    background-color: #f8f9fa;
+    border-bottom: 1px solid #dee2e6;
+}
+
+.filter-card {
+    background-color: #f8f9fa;
+    border: 1px solid #dee2e6;
+}
+
+.stats-card {
+    transition: transform 0.2s ease-in-out;
+}
+
+.stats-card:hover {
+    transform: translateY(-2px);
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1 class="h3 mb-0">
+                <i class="fas fa-history me-2"></i>Activity Log
+            </h1>
+            <div>
+                <button class="btn btn-outline-primary" onclick="refreshActivity()">
+                    <i class="fas fa-sync-alt me-2"></i>Làm mới
+                </button>
+                <button class="btn btn-outline-success" onclick="exportActivity()">
+                    <i class="fas fa-download me-2"></i>Xuất CSV
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Statistics Cards -->
+<div class="row mb-4">
+    <div class="col-lg-3 col-md-6 mb-3">
+        <div class="card bg-primary text-white stats-card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="card-title">Tổng hoạt động</h6>
+                        <h4 class="mb-0">{{ activity_stats.total_activities }}</h4>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-chart-line fa-2x opacity-75"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-3 col-md-6 mb-3">
+        <div class="card bg-success text-white stats-card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="card-title">24h gần đây</h6>
+                        <h4 class="mb-0">{{ activity_stats.recent_24h }}</h4>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-clock fa-2x opacity-75"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-3 col-md-6 mb-3">
+        <div class="card bg-info text-white stats-card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="card-title">Loại hoạt động</h6>
+                        <h4 class="mb-0">{{ activity_stats.actions|length }}</h4>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-tags fa-2x opacity-75"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-3 col-md-6 mb-3">
+        <div class="card bg-warning text-white stats-card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="card-title">Modules</h6>
+                        <h4 class="mb-0">{{ activity_stats.modules|length }}</h4>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-cubes fa-2x opacity-75"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Filter Section -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card filter-card">
+            <div class="card-body">
+                <div class="row align-items-center">
+                    <div class="col-md-4">
+                        <label for="actionFilter" class="form-label fw-semibold">
+                            <i class="fas fa-filter me-1"></i>Lọc theo hành động:
+                        </label>
+                        <select class="form-select" id="actionFilter" onchange="filterActivity()">
+                            <option value="">Tất cả hành động</option>
+                            <option value="CREATE_KEY" {% if action_filter == 'CREATE_KEY' %}selected{% endif %}>Tạo Key</option>
+                            <option value="UPDATE_KEY" {% if action_filter == 'UPDATE_KEY' %}selected{% endif %}>Cập nhật Key</option>
+                            <option value="DELETE_KEY" {% if action_filter == 'DELETE_KEY' %}selected{% endif %}>Xóa Key</option>
+                            <option value="VIEW_KEY" {% if action_filter == 'VIEW_KEY' %}selected{% endif %}>Xem Key</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label for="moduleFilter" class="form-label fw-semibold">
+                            <i class="fas fa-cube me-1"></i>Lọc theo Module:
+                        </label>
+                        <select class="form-select" id="moduleFilter" onchange="filterActivity()">
+                            <option value="">Tất cả modules</option>
+                            {% for module in modules %}
+                            <option value="{{ module }}" {% if module_filter == module %}selected{% endif %}>
+                                {{ module.replace('_', ' ').title() }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label for="searchInput" class="form-label fw-semibold">
+                            <i class="fas fa-search me-1"></i>Tìm kiếm:
+                        </label>
+                        <div class="input-group">
+                            <input type="text" class="form-control" id="searchInput" placeholder="Tìm theo key, IP...">
+                            <button class="btn btn-outline-secondary" type="button" onclick="searchActivity()">
+                                <i class="fas fa-search"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Activity Log Table -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-list me-2"></i>Activity Log
+                    <span class="badge bg-primary ms-2" id="totalActivities">{{ activities|length }}</span>
+                </h5>
+                <div>
+                    <button class="btn btn-sm btn-outline-primary" onclick="refreshActivity()">
+                        <i class="fas fa-sync-alt me-1"></i>Làm mới
+                    </button>
+                </div>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0 activity-table" id="activityTable">
+                        <thead>
+                            <tr>
+                                <th width="50">STT</th>
+                                <th class="time-column">
+                                    <i class="fas fa-clock me-1"></i>Thời gian
+                                </th>
+                                <th class="action-column">
+                                    <i class="fas fa-tag me-1"></i>Hành động
+                                </th>
+                                <th class="key-column">
+                                    <i class="fas fa-key me-1"></i>Key
+                                </th>
+                                <th class="module-column">
+                                    <i class="fas fa-cube me-1"></i>Module
+                                </th>
+                                <th class="change-column">
+                                    <i class="fas fa-exchange-alt me-1"></i>Thay đổi
+                                </th>
+                                <th class="ip-column">
+                                    <i class="fas fa-map-marker-alt me-1"></i>IP Address
+                                </th>
+                                <th class="detail-column">
+                                    <i class="fas fa-info-circle me-1"></i>Chi tiết
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for activity in activities %}
+                            <tr data-activity-id="{{ activity.id }}">
+                                <td class="text-center">
+                                    <span class="badge bg-secondary">{{ loop.index }}</span>
+                                </td>
+                                <td class="time-column">
+                                    <div class="d-flex flex-column time-display">
+                                        <small class="fw-bold text-primary" id="time-{{ activity.id }}">{{ activity.created_at[:19] }}</small>
+                                        <small class="text-muted" id="ago-{{ activity.id }}">{{ activity.created_at[19:] }}</small>
+                                    </div>
+                                </td>
+                                <td class="action-column">
+                                    {% if activity.action == 'CREATE_KEY' %}
+                                        <span class="badge bg-success">
+                                            <i class="fas fa-plus me-1"></i>Tạo
+                                        </span>
+                                    {% elif activity.action == 'UPDATE_KEY' %}
+                                        <span class="badge bg-warning">
+                                            <i class="fas fa-edit me-1"></i>Cập nhật
+                                        </span>
+                                    {% elif activity.action == 'DELETE_KEY' %}
+                                        <span class="badge bg-danger">
+                                            <i class="fas fa-trash me-1"></i>Xóa
+                                        </span>
+                                    {% elif activity.action == 'VIEW_KEY' %}
+                                        <span class="badge bg-info">
+                                            <i class="fas fa-eye me-1"></i>Xem
+                                        </span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">{{ activity.action }}</span>
+                                    {% endif %}
+                                </td>
+                                <td class="key-column">
+                                    {% if activity.key_value %}
+                                        <code class="text-primary">{{ activity.key_value[:20] }}{% if activity.key_value|length > 20 %}...{% endif %}</code>
+                                    {% else %}
+                                        <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                                <td class="module-column">
+                                    {% if activity.module %}
+                                        <span class="badge bg-info">{{ activity.module.replace('_', ' ').title() }}</span>
+                                    {% else %}
+                                        <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                                <td class="change-column">
+                                    {% if activity.old_values and activity.new_values %}
+                                        <span class="badge bg-warning">
+                                            <i class="fas fa-exchange-alt me-1"></i>Có thay đổi
+                                        </span>
+                                    {% elif activity.new_values %}
+                                        <span class="badge bg-success">
+                                            <i class="fas fa-plus me-1"></i>Mới
+                                        </span>
+                                    {% elif activity.old_values %}
+                                        <span class="badge bg-danger">
+                                            <i class="fas fa-trash me-1"></i>Đã xóa
+                                        </span>
+                                    {% else %}
+                                        <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                                <td class="ip-column">
+                                    {% if activity.user_ip %}
+                                        <code class="text-success">{{ activity.user_ip }}</code>
+                                    {% else %}
+                                        <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                                <td class="detail-column">
+                                    <button class="btn btn-sm btn-outline-info" onclick="viewActivityDetail({{ activity.id }})" title="Xem chi tiết">
+                                        <i class="fas fa-info-circle"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Pagination -->
+<div class="row mt-4">
+    <div class="col-12">
+        <nav aria-label="Page navigation">
+            <ul class="pagination justify-content-center" id="pagination">
+                <!-- Pagination will be generated by JavaScript -->
+            </ul>
+        </nav>
+    </div>
+</div>
+
+<!-- Activity Detail Modal -->
+<div class="modal fade" id="activityDetailModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-info-circle me-2"></i>Chi tiết hoạt động
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="activityDetailContent">
+                <!-- Content will be loaded here -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let allActivities = {{ activities|tojson }};
+let filteredActivities = allActivities;
+let currentPage = {{ current_page }};
+const itemsPerPage = 20;
+
+function filterActivity() {
+    const action = document.getElementById('actionFilter').value;
+    const module = document.getElementById('moduleFilter').value;
+    
+    // Reload page with filters
+    const params = new URLSearchParams();
+    if (action) params.append('action', action);
+    if (module) params.append('module', module);
+    
+    const url = '{{ url_for("admin.activity_log") }}' + (params.toString() ? '?' + params.toString() : '');
+    window.location.href = url;
+}
+
+function searchActivity() {
+    const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+    if (searchTerm) {
+        filteredActivities = allActivities.filter(activity => 
+            (activity.key_value && activity.key_value.toLowerCase().includes(searchTerm)) ||
+            (activity.user_ip && activity.user_ip.includes(searchTerm)) ||
+            activity.action.toLowerCase().includes(searchTerm)
+        );
+    } else {
+        filteredActivities = allActivities;
+    }
+    updateTable();
+}
+
+function refreshActivity() {
+    location.reload();
+}
+
+function exportActivity() {
+    // Create CSV content
+    let csv = 'Thời gian,Hành động,Key,Module,IP,User Agent\n';
+    
+    allActivities.forEach(activity => {
+        const row = [
+            activity.created_at,
+            activity.action,
+            activity.key_value || '',
+            activity.module || '',
+            activity.user_ip || '',
+            activity.user_agent || ''
+        ].map(field => `"${field}"`).join(',');
+        csv += row + '\n';
+    });
+    
+    // Download CSV
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', 'activity_log.csv');
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
+function viewActivityDetail(activityId) {
+    const activity = allActivities.find(a => a.id === activityId);
+    if (!activity) return;
+    
+    let content = `
+        <div class="row">
+            <div class="col-md-6">
+                <h6>Thông tin cơ bản</h6>
+                <table class="table table-sm">
+                    <tr><td><strong>ID:</strong></td><td>${activity.id}</td></tr>
+                    <tr><td><strong>Hành động:</strong></td><td><span class="badge bg-primary">${activity.action}</span></td></tr>
+                    <tr><td><strong>Key:</strong></td><td><code>${activity.key_value || '-'}</code></td></tr>
+                    <tr><td><strong>Module:</strong></td><td>${activity.module || '-'}</td></tr>
+                    <tr><td><strong>Thời gian:</strong></td><td>${activity.created_at}</td></tr>
+                    <tr><td><strong>IP:</strong></td><td>${activity.user_ip || '-'}</td></tr>
+                </table>
+            </div>
+            <div class="col-md-6">
+                <h6>Thông tin bổ sung</h6>
+                <table class="table table-sm">
+                    <tr><td><strong>User Agent:</strong></td><td><small>${activity.user_agent || '-'}</small></td></tr>
+                </table>
+            </div>
+        </div>
+    `;
+    
+    if (activity.old_values || activity.new_values) {
+        content += '<hr><h6>Chi tiết thay đổi</h6>';
+        
+        if (activity.old_values) {
+            content += '<h6 class="text-danger">Giá trị cũ:</h6>';
+            content += '<pre class="bg-light p-2"><code>' + JSON.stringify(activity.old_values, null, 2) + '</code></pre>';
+        }
+        
+        if (activity.new_values) {
+            content += '<h6 class="text-success">Giá trị mới:</h6>';
+            content += '<pre class="bg-light p-2"><code>' + JSON.stringify(activity.new_values, null, 2) + '</code></pre>';
+        }
+    }
+    
+    document.getElementById('activityDetailContent').innerHTML = content;
+    
+    const modal = new bootstrap.Modal(document.getElementById('activityDetailModal'));
+    modal.show();
+}
+
+function updateTable() {
+    // Update total count
+    document.getElementById('totalActivities').textContent = filteredActivities.length;
+    
+    // Update table body
+    const tbody = document.querySelector('#activityTable tbody');
+    tbody.innerHTML = '';
+    
+    filteredActivities.forEach((activity, index) => {
+        const row = createActivityRow(activity, index + 1);
+        tbody.appendChild(row);
+    });
+}
+
+function createActivityRow(activity, index) {
+    const row = document.createElement('tr');
+    row.setAttribute('data-activity-id', activity.id);
+    
+    const actionBadge = getActionBadge(activity.action);
+    const changeBadge = getChangeBadge(activity.old_values, activity.new_values);
+    
+    row.innerHTML = `
+        <td class="text-center">
+            <span class="badge bg-secondary">${index}</span>
+        </td>
+        <td><small class="text-muted">${activity.created_at}</small></td>
+        <td>${actionBadge}</td>
+        <td>
+            ${activity.key_value ? 
+                `<code class="text-primary">${activity.key_value.substring(0, 20)}${activity.key_value.length > 20 ? '...' : ''}</code>` : 
+                '<span class="text-muted">-</span>'
+            }
+        </td>
+        <td>
+            ${activity.module ? 
+                `<span class="badge bg-info">${activity.module.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}</span>` : 
+                '<span class="text-muted">-</span>'
+            }
+        </td>
+        <td>${changeBadge}</td>
+        <td><small class="text-muted">${activity.user_ip || '-'}</small></td>
+        <td>
+            <button class="btn btn-sm btn-outline-info" onclick="viewActivityDetail(${activity.id})" title="Xem chi tiết">
+                <i class="fas fa-info-circle"></i>
+            </button>
+        </td>
+    `;
+    
+    return row;
+}
+
+function getActionBadge(action) {
+    const badges = {
+        'CREATE_KEY': '<span class="badge bg-success"><i class="fas fa-plus me-1"></i>Tạo</span>',
+        'UPDATE_KEY': '<span class="badge bg-warning"><i class="fas fa-edit me-1"></i>Cập nhật</span>',
+        'DELETE_KEY': '<span class="badge bg-danger"><i class="fas fa-trash me-1"></i>Xóa</span>',
+        'VIEW_KEY': '<span class="badge bg-info"><i class="fas fa-eye me-1"></i>Xem</span>'
+    };
+    return badges[action] || `<span class="badge bg-secondary">${action}</span>`;
+}
+
+function getChangeBadge(oldValues, newValues) {
+    if (oldValues && newValues) {
+        return '<span class="badge bg-warning">Có thay đổi</span>';
+    } else if (newValues) {
+        return '<span class="badge bg-success">Mới</span>';
+    } else if (oldValues) {
+        return '<span class="badge bg-danger">Đã xóa</span>';
+    } else {
+        return '<span class="text-muted">-</span>';
+    }
+}
+
+// Initialize
+updateTable();
+
+// Format time to Vietnam timezone
+function formatVietnamTime(dateString) {
+    const date = new Date(dateString);
+    const vietnamTime = new Date(date.getTime() + (7 * 60 * 60 * 1000)); // UTC+7
+    
+    const options = {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false,
+        timeZone: 'Asia/Ho_Chi_Minh'
+    };
+    
+    return vietnamTime.toLocaleString('vi-VN', options);
+}
+
+function getTimeAgoVietnam(dateString) {
+    const now = new Date();
+    const date = new Date(dateString);
+    const vietnamNow = new Date(now.getTime() + (7 * 60 * 60 * 1000));
+    const vietnamDate = new Date(date.getTime() + (7 * 60 * 60 * 1000));
+    
+    const diffMs = vietnamNow - vietnamDate;
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMins / 60);
+    const diffDays = Math.floor(diffHours / 24);
+    
+    if (diffMins < 1) return 'Vừa xong';
+    if (diffMins < 60) return `${diffMins} phút trước`;
+    if (diffHours < 24) return `${diffHours} giờ trước`;
+    if (diffDays < 7) return `${diffDays} ngày trước`;
+    return vietnamDate.toLocaleDateString('vi-VN');
+}
+
+// Update all time displays to Vietnam timezone
+function updateVietnamTime() {
+    allActivities.forEach(activity => {
+        const timeElement = document.getElementById(`time-${activity.id}`);
+        const agoElement = document.getElementById(`ago-${activity.id}`);
+        
+        if (timeElement && agoElement) {
+            timeElement.textContent = formatVietnamTime(activity.created_at);
+            agoElement.textContent = getTimeAgoVietnam(activity.created_at);
+        }
+    });
+}
+
+// Initialize Vietnam time formatting
+$(document).ready(function() {
+    updateVietnamTime();
+});
+</script>
+{% endblock %}

@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Admin Panel - Key Management{% endblock %}</title>
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <!-- Custom CSS -->
+    <link href="{{ url_for('static', filename='admin/css/admin.css') }}" rel="stylesheet">
+    
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="{{ url_for('admin.dashboard') }}">
+                <i class="fas fa-key me-2"></i>Key Management Admin
+            </a>
+            
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('admin.dashboard') }}">
+                            <i class="fas fa-tachometer-alt me-1"></i>Dashboard
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('admin.keys_list') }}">
+                            <i class="fas fa-list me-1"></i>Danh sách Keys
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('admin.add_key') }}">
+                            <i class="fas fa-plus me-1"></i>Thêm Key
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('admin.activity_log') }}">
+                            <i class="fas fa-history me-1"></i>Activity Log
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('admin.api_usage_log') }}">
+                            <i class="fas fa-globe me-1"></i>API Usage
+                        </a>
+                    </li>
+                </ul>
+                
+                <ul class="navbar-nav">
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+                            <i class="fas fa-user me-1"></i>{{ session.admin_user.username if session.admin_user else 'Admin' }}
+                        </a>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="#"><i class="fas fa-user-circle me-2"></i>Thông tin cá nhân</a></li>
+                            <li><a class="dropdown-item" href="#"><i class="fas fa-cog me-2"></i>Cài đặt</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="{{ url_for('admin.logout') }}"><i class="fas fa-sign-out-alt me-2"></i>Đăng xuất</a></li>
+                        </ul>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="container-fluid mt-4">
+        <!-- Flash Messages -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        {% block content %}{% endblock %}
+    </div>
+
+    <!-- Toast Container -->
+    <div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 9999;">
+        <div id="customToast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="toast-header">
+                <i id="toastIcon" class="fas fa-info-circle text-primary me-2"></i>
+                <strong id="toastTitle" class="me-auto">Thông báo</strong>
+                <small id="toastTime" class="text-muted">Vừa xong</small>
+                <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+            </div>
+            <div id="toastBody" class="toast-body">
+                <!-- Message content will be inserted here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="bg-light text-center text-muted py-3 mt-5">
+        <div class="container">
+            <p class="mb-0">&copy; 2024 Key Management System. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- jQuery -->
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <!-- Custom JS -->
+    <script src="{{ url_for('static', filename='admin/js/admin.js') }}"></script>
+    
+    <!-- Vietnam Timezone System -->
+    <script>
+        // Vietnam timezone utilities
+        function formatVietnamTime(dateString) {
+            if (!dateString) return 'N/A';
+            
+            // Handle different date formats
+            let date;
+            if (typeof dateString === 'string') {
+                // If it's already in Vietnam time format, parse it directly
+                if (dateString.includes(' ')) {
+                    // Format: "2025-09-12 07:06:54" - treat as Vietnam time
+                    const [datePart, timePart] = dateString.split(' ');
+                    const [year, month, day] = datePart.split('-');
+                    const [hour, minute, second] = timePart.split(':');
+                    date = new Date(year, month - 1, day, hour, minute, second);
+                } else {
+                    date = new Date(dateString);
+                }
+            } else {
+                date = new Date(dateString);
+            }
+            
+            if (isNaN(date.getTime())) return 'Thời gian không hợp lệ';
+            
+            const options = {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                hour12: false
+            };
+            
+            return date.toLocaleString('vi-VN', options);
+        }
+        
+        function getVietnamTimeAgo(dateString) {
+            if (!dateString) return 'N/A';
+            
+            // Handle different date formats
+            let date;
+            if (typeof dateString === 'string') {
+                if (dateString.includes(' ')) {
+                    // Format: "2025-09-12 08:26:43" - treat as Vietnam time
+                    const [datePart, timePart] = dateString.split(' ');
+                    const [year, month, day] = datePart.split('-');
+                    const [hour, minute, second] = timePart.split(':');
+                    
+                    // Create date in Vietnam timezone (no adjustment needed)
+                    date = new Date(year, month - 1, day, hour, minute, second);
+                } else {
+                    date = new Date(dateString);
+                }
+            } else {
+                date = new Date(dateString);
+            }
+            
+            if (isNaN(date.getTime())) return 'Thời gian không hợp lệ';
+            
+            const now = new Date();
+            const diffMs = now - date;
+            const diffMins = Math.floor(diffMs / 60000);
+            const diffHours = Math.floor(diffMins / 60);
+            const diffDays = Math.floor(diffHours / 24);
+            
+            if (diffMins < 1) return 'Vừa xong';
+            if (diffMins < 60) return `${diffMins} phút trước`;
+            if (diffHours < 24) return `${diffHours} giờ trước`;
+            if (diffDays < 7) return `${diffDays} ngày trước`;
+            
+            // For older dates, show formatted date
+            const options = {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit'
+            };
+            return date.toLocaleDateString('vi-VN', options);
+        }
+        
+        // Auto-update all time elements on page load
+        function updateVietnamTimes() {
+            // Update elements with data-time attribute
+            document.querySelectorAll('[data-time]').forEach(element => {
+                const timeString = element.getAttribute('data-time');
+                const formattedTime = formatVietnamTime(timeString);
+                const timeAgo = getVietnamTimeAgo(timeString);
+                
+                if (element.classList.contains('time-display')) {
+                    element.innerHTML = `
+                        <small class="text-primary fw-bold">${formattedTime}</small>
+                        <small class="text-muted">${timeAgo}</small>
+                    `;
+                } else {
+                    element.textContent = formattedTime;
+                }
+            });
+        }
+        
+        // Update times when page loads
+        $(document).ready(function() {
+            updateVietnamTimes();
+        });
+    </script>
+    
+    <!-- Custom Toast Notification System -->
+    <script>
+        function showToast(message, type = 'info', title = 'Thông báo', duration = 5000) {
+            const toast = document.getElementById('customToast');
+            const toastIcon = document.getElementById('toastIcon');
+            const toastTitle = document.getElementById('toastTitle');
+            const toastBody = document.getElementById('toastBody');
+            const toastTime = document.getElementById('toastTime');
+            
+            // Set icon and color based on type
+            const icons = {
+                'success': 'fas fa-check-circle text-success',
+                'error': 'fas fa-exclamation-circle text-danger',
+                'warning': 'fas fa-exclamation-triangle text-warning',
+                'info': 'fas fa-info-circle text-primary'
+            };
+            
+            const titles = {
+                'success': 'Thành công',
+                'error': 'Lỗi',
+                'warning': 'Cảnh báo',
+                'info': 'Thông báo'
+            };
+            
+            // Update toast content
+            toastIcon.className = icons[type] || icons['info'];
+            toastTitle.textContent = titles[type] || title;
+            toastBody.textContent = message;
+            toastTime.textContent = 'Vừa xong';
+            
+            // Show toast
+            const bsToast = new bootstrap.Toast(toast, {
+                autohide: true,
+                delay: duration
+            });
+            bsToast.show();
+        }
+        
+        // Replace default alert function
+        window.alert = function(message) {
+            showToast(message, 'info', 'Thông báo');
+        };
+        
+        // Custom success function
+        window.showSuccess = function(message) {
+            showToast(message, 'success', 'Thành công');
+        };
+        
+        // Custom error function
+        window.showError = function(message) {
+            showToast(message, 'error', 'Lỗi');
+        };
+        
+        // Custom warning function
+        window.showWarning = function(message) {
+            showToast(message, 'warning', 'Cảnh báo');
+        };
+        
+        // Custom info function
+        window.showInfo = function(message) {
+            showToast(message, 'info', 'Thông báo');
+        };
+    </script>
+    
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

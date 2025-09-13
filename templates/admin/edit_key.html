@@ -1,0 +1,212 @@
+{% extends "admin/base.html" %}
+
+{% block title %}Chỉnh sửa Key - Admin Panel{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header">
+                <h4 class="card-title mb-0">
+                    <i class="fas fa-edit me-2"></i>Chỉnh sửa Key
+                </h4>
+            </div>
+            <div class="card-body">
+                <form id="editKeyForm">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="key" class="form-label">Key</label>
+                            <input type="text" class="form-control" id="key" name="key" value="{{ key_info.key }}" readonly>
+                            <div class="form-text">Key không thể thay đổi</div>
+                        </div>
+                        
+                        <div class="col-md-6 mb-3">
+                            <label for="module" class="form-label">Module</label>
+                            <input type="text" class="form-control" id="module" name="module" value="{{ key_info.module }}" readonly>
+                            <div class="form-text">Module không thể thay đổi</div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="device_id" class="form-label">Device ID</label>
+                            <input type="text" class="form-control" id="device_id" name="device_id" value="{{ key_info.device_id or '' }}">
+                            <div class="form-text">Để trống nếu chưa gán thiết bị</div>
+                        </div>
+                        
+                        <div class="col-md-6 mb-3">
+                            <label for="status" class="form-label">Trạng thái</label>
+                            <select class="form-select" id="status" name="status">
+                                <option value="active" {% if key_info.status == 'active' %}selected{% endif %}>Active</option>
+                                <option value="inactive" {% if key_info.status == 'inactive' %}selected{% endif %}>Inactive</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="expires" class="form-label">Ngày hết hạn</label>
+                            <input type="date" class="form-control" id="expires" name="expires" value="{{ key_info.expires or '' }}">
+                            <div class="form-text">Định dạng: MM/DD/YYYY</div>
+                        </div>
+                        
+                        <div class="col-md-6 mb-3">
+                            <label for="max_usage" class="form-label">Số lượt tối đa</label>
+                            <input type="number" class="form-control" id="max_usage" name="max_usage" value="{{ key_info.max_usage or '' }}" min="1">
+                            <div class="form-text">Để trống nếu không giới hạn</div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="usage_count" class="form-label">Số lượt đã sử dụng</label>
+                            <input type="number" class="form-control" id="usage_count" name="usage_count" value="{{ key_info.usage_count or 0 }}" min="0">
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-12 mb-3">
+                            <label for="note" class="form-label">Ghi chú</label>
+                            <textarea class="form-control" id="note" name="note" rows="3" placeholder="Nhập ghi chú cho key này...">{{ key_info.note or '' }}</textarea>
+                            <div class="form-text">Ghi chú sẽ hiển thị trong danh sách keys</div>
+                        </div>
+                    </div>
+                    
+                    <div class="d-flex justify-content-between">
+                        <a href="{{ url_for('admin.keys_list') }}" class="btn btn-secondary">
+                            <i class="fas fa-arrow-left me-2"></i>Quay lại
+                        </a>
+                        <button type="submit" class="btn btn-warning">
+                            <i class="fas fa-save me-2"></i>Cập nhật Key
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Current Status Card -->
+<div class="row justify-content-center mt-4">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-info-circle me-2"></i>Trạng thái hiện tại
+                </h5>
+            </div>
+            <div class="card-body">
+                <div id="currentStatus">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <strong>Key:</strong><br>
+                            <code class="text-primary">{{ key_info.key }}</code>
+                        </div>
+                        <div class="col-md-6">
+                            <strong>Module:</strong><br>
+                            <span class="badge bg-info">{{ key_info.module.replace('_', ' ').title() }}</span>
+                        </div>
+                    </div>
+                    <hr>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <strong>Device ID:</strong><br>
+                            {% if key_info.device_id %}
+                                <code>{{ key_info.device_id }}</code>
+                            {% else %}
+                                <span class="text-muted">Chưa gán</span>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-6">
+                            <strong>Trạng thái:</strong><br>
+                            <span class="badge {% if key_info.status == 'active' %}bg-success{% else %}bg-secondary{% endif %}">
+                                {{ key_info.status.title() }}
+                            </span>
+                        </div>
+                    </div>
+                    <hr>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <strong>Hết hạn:</strong><br>
+                            {% if key_info.expires %}
+                                {{ key_info.expires }}
+                            {% else %}
+                                <span class="text-muted">Không giới hạn</span>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-6">
+                            <strong>Sử dụng:</strong><br>
+                            {% if key_info.max_usage %}
+                                {{ key_info.usage_count or 0 }}/{{ key_info.max_usage }}
+                                {% set remaining = key_info.max_usage - (key_info.usage_count or 0) %}
+                                (còn lại: {{ remaining }})
+                            {% else %}
+                                {{ key_info.usage_count or 0 }} (unlimited)
+                            {% endif %}
+                        </div>
+                    <hr>
+                    <div class="row">
+                        <div class="col-12">
+                            <strong>Ghi chú:</strong><br>
+                            {% if key_info.note %}
+                                <span class="text-muted">{{ key_info.note }}</span>
+                            {% else %}
+                                <span class="text-muted">Không có ghi chú</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // Form submission
+    $('#editKeyForm').on('submit', function(e) {
+        e.preventDefault();
+        
+        const formData = {
+            device_id: $('#device_id').val().trim() || null,
+            status: $('#status').val(),
+            expires: $('#expires').val() || null,
+            max_usage: $('#max_usage').val() ? parseInt($('#max_usage').val()) : null,
+            usage_count: parseInt($('#usage_count').val()) || 0,
+            note: $('#note').val().trim() || null
+        };
+        
+        // Show loading
+        const submitBtn = $('button[type="submit"]');
+        const originalText = submitBtn.html();
+        submitBtn.html('<i class="fas fa-spinner fa-spin me-2"></i>Đang cập nhật...').prop('disabled', true);
+        
+        // Submit form
+        $.ajax({
+            url: window.location.href,
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify(formData),
+            success: function(response) {
+                if (response.success) {
+                    showSuccess('Cập nhật key thành công!');
+                    setTimeout(() => {
+                        window.location.href = '{{ url_for("admin.keys_list") }}';
+                    }, 1500);
+                } else {
+                    showError('Lỗi: ' + response.message);
+                }
+            },
+            error: function() {
+                showError('Có lỗi xảy ra khi cập nhật key!');
+            },
+            complete: function() {
+                submitBtn.html(originalText).prop('disabled', false);
+            }
+        });
+    });
+});
+</script>
+{% endblock %}

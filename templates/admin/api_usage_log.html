@@ -1,0 +1,381 @@
+{% extends "admin/base.html" %}
+
+{% block title %}API Usage Log - Admin Panel{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1 class="h3 mb-0">
+                <i class="fas fa-globe me-2"></i>API Usage Log
+            </h1>
+            <div>
+                <button class="btn btn-outline-primary" onclick="refreshUsageLog()">
+                    <i class="fas fa-sync-alt me-2"></i>Làm mới
+                </button>
+                <button class="btn btn-outline-success" onclick="exportUsageLog()">
+                    <i class="fas fa-download me-2"></i>Xuất CSV
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Statistics Cards -->
+<div class="row mb-4">
+    <div class="col-lg-3 col-md-6 mb-3">
+        <div class="card bg-primary text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="card-title">Tổng API Calls</h6>
+                        <h4 class="mb-0">{{ usage_stats.total_calls }}</h4>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-chart-line fa-2x opacity-75"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-3 col-md-6 mb-3">
+        <div class="card bg-success text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="card-title">24h gần đây</h6>
+                        <h4 class="mb-0">{{ usage_stats.recent_24h }}</h4>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-clock fa-2x opacity-75"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-3 col-md-6 mb-3">
+        <div class="card bg-info text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="card-title">Modules</h6>
+                        <h4 class="mb-0">{{ usage_stats.modules|length }}</h4>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-cubes fa-2x opacity-75"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-3 col-md-6 mb-3">
+        <div class="card bg-warning text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="card-title">Unique IPs</h6>
+                        <h4 class="mb-0">{{ usage_stats.top_ips|length }}</h4>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-network-wired fa-2x opacity-75"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Filter Section -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <div class="row align-items-center">
+                    <div class="col-md-3">
+                        <label for="keyFilter" class="form-label">Lọc theo Key:</label>
+                        <input type="text" class="form-control" id="keyFilter" value="{{ key_filter }}" placeholder="Nhập key...">
+                    </div>
+                    <div class="col-md-2">
+                        <label for="moduleFilter" class="form-label">Module:</label>
+                        <select class="form-select" id="moduleFilter">
+                            <option value="">Tất cả</option>
+                            {% for module in modules %}
+                            <option value="{{ module }}" {% if module_filter == module %}selected{% endif %}>
+                                {{ module.replace('_', ' ').title() }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label for="ipFilter" class="form-label">IP Address:</label>
+                        <input type="text" class="form-control" id="ipFilter" value="{{ ip_filter }}" placeholder="192.168.1.1">
+                    </div>
+                    <div class="col-md-2">
+                        <label for="endpointFilter" class="form-label">Endpoint:</label>
+                        <input type="text" class="form-control" id="endpointFilter" value="{{ endpoint_filter }}" placeholder="/api/voice/create">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">&nbsp;</label>
+                        <div class="d-grid">
+                            <button class="btn btn-primary" onclick="applyFilters()">
+                                <i class="fas fa-search me-2"></i>Lọc
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- API Usage Log Table -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-list me-2"></i>API Usage Log
+                    <span class="badge bg-primary ms-2" id="totalLogs">{{ usage_logs|length }}</span>
+                </h5>
+                <div>
+                    <button class="btn btn-sm btn-outline-primary" onclick="refreshUsageLog()">
+                        <i class="fas fa-sync-alt me-1"></i>Làm mới
+                    </button>
+                </div>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0" id="usageTable">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>STT</th>
+                                <th>Thời gian</th>
+                                <th>Key</th>
+                                <th>Module</th>
+                                <th>Device ID</th>
+                                <th>Endpoint</th>
+                                <th>IP Address</th>
+                                <th>Status</th>
+                                <th>Chi tiết</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% if usage_logs %}
+                                {% for log in usage_logs %}
+                                <tr data-log-id="{{ log.id }}">
+                                    <td>{{ loop.index }}</td>
+                                    <td>
+                                        <div class="time-display" data-time="{{ log.created_at }}">
+                                            <small class="text-primary fw-bold">{{ log.created_at }}</small>
+                                            <small class="text-muted">Loading...</small>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <code class="text-primary">{{ log.key_value[:20] }}{% if log.key_value|length > 20 %}...{% endif %}</code>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-info">{{ log.module.replace('_', ' ').title() }}</span>
+                                    </td>
+                                    <td>
+                                        {% if log.device_id %}
+                                            <code>{{ log.device_id[:15] }}{% if log.device_id|length > 15 %}...{% endif %}</code>
+                                        {% else %}
+                                            <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if log.endpoint %}
+                                            <small class="text-muted">{{ log.endpoint }}</small>
+                                        {% else %}
+                                            <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <code class="text-success">{{ log.user_ip or '-' }}</code>
+                                    </td>
+                                    <td>
+                                        {% if log.response_status == 200 %}
+                                            <span class="badge bg-success">200 OK</span>
+                                        {% elif log.response_status == 400 %}
+                                            <span class="badge bg-warning">400 Bad Request</span>
+                                        {% elif log.response_status == 403 %}
+                                            <span class="badge bg-danger">403 Forbidden</span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">{{ log.response_status or 'N/A' }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <button class="btn btn-sm btn-outline-info" onclick="viewUsageDetail({{ log.id }})" title="Xem chi tiết">
+                                            <i class="fas fa-info-circle"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            {% else %}
+                                <tr>
+                                    <td colspan="9" class="text-center py-4">
+                                        <div class="text-muted">
+                                            <i class="fas fa-search fa-2x mb-2"></i>
+                                            <p class="mb-0">Không tìm thấy dữ liệu lịch sử sử dụng</p>
+                                            {% if key_filter or module_filter or endpoint_filter or ip_filter %}
+                                                <small>Thử thay đổi bộ lọc để tìm kiếm khác</small>
+                                            {% else %}
+                                                <small>Chưa có API nào được sử dụng</small>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                </tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Usage Detail Modal -->
+<div class="modal fade" id="usageDetailModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-info-circle me-2"></i>Chi tiết API Usage
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="usageDetailContent">
+                <!-- Content will be loaded here -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let allUsageLogs = {{ usage_logs|tojson }};
+let filteredLogs = allUsageLogs;
+let currentPage = {{ current_page }};
+const itemsPerPage = 20;
+
+function applyFilters() {
+    const key = document.getElementById('keyFilter').value;
+    const module = document.getElementById('moduleFilter').value;
+    const ip = document.getElementById('ipFilter').value;
+    const endpoint = document.getElementById('endpointFilter').value;
+    
+    // Build URL with filters
+    const params = new URLSearchParams();
+    if (key) params.append('key', key);
+    if (module) params.append('module', module);
+    if (ip) params.append('ip', ip);
+    if (endpoint) params.append('endpoint', endpoint);
+    
+    const url = '{{ url_for("admin.api_usage_log") }}' + (params.toString() ? '?' + params.toString() : '');
+    window.location.href = url;
+}
+
+function refreshUsageLog() {
+    location.reload();
+}
+
+function exportUsageLog() {
+    // Create CSV content
+    let csv = 'Thời gian,Key,Module,Device ID,Endpoint,IP Address,User Agent,Status,Message\n';
+    
+    allUsageLogs.forEach(log => {
+        const row = [
+            log.created_at,
+            log.key_value || '',
+            log.module || '',
+            log.device_id || '',
+            log.endpoint || '',
+            log.user_ip || '',
+            log.user_agent || '',
+            log.response_status || '',
+            log.response_message || ''
+        ].map(field => `"${field}"`).join(',');
+        csv += row + '\n';
+    });
+    
+    // Download CSV
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', 'api_usage_log.csv');
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
+function viewUsageDetail(logId) {
+    const log = allUsageLogs.find(l => l.id === logId);
+    if (!log) return;
+    
+    let content = `
+        <div class="row">
+            <div class="col-md-6">
+                <h6>Thông tin cơ bản</h6>
+                <table class="table table-sm">
+                    <tr><td><strong>ID:</strong></td><td>${log.id}</td></tr>
+                    <tr><td><strong>Key:</strong></td><td><code>${log.key_value || '-'}</code></td></tr>
+                    <tr><td><strong>Module:</strong></td><td>${log.module || '-'}</td></tr>
+                    <tr><td><strong>Device ID:</strong></td><td>${log.device_id || '-'}</td></tr>
+                    <tr><td><strong>Endpoint:</strong></td><td>${log.endpoint || '-'}</td></tr>
+                    <tr><td><strong>Thời gian:</strong></td><td id="modal-time-${log.id}">${log.created_at}</td></tr>
+                </table>
+            </div>
+            <div class="col-md-6">
+                <h6>Thông tin mạng</h6>
+                <table class="table table-sm">
+                    <tr><td><strong>IP Address:</strong></td><td><code>${log.user_ip || '-'}</code></td></tr>
+                    <tr><td><strong>User Agent:</strong></td><td><small>${log.user_agent || '-'}</small></td></tr>
+                    <tr><td><strong>Status:</strong></td><td><span class="badge ${getStatusBadgeClass(log.response_status)}">${log.response_status || 'N/A'}</span></td></tr>
+                    <tr><td><strong>Message:</strong></td><td>${log.response_message || '-'}</td></tr>
+                </table>
+            </div>
+        </div>
+    `;
+    
+    if (log.request_data) {
+        content += '<hr><h6>Request Data:</h6>';
+        content += '<pre class="bg-light p-2"><code>' + JSON.stringify(log.request_data, null, 2) + '</code></pre>';
+    }
+    
+    document.getElementById('usageDetailContent').innerHTML = content;
+    
+    // Update modal time to Vietnam timezone
+    const modalTimeElement = document.getElementById(`modal-time-${log.id}`);
+    if (modalTimeElement) {
+        modalTimeElement.textContent = formatVietnamTime(log.created_at);
+    }
+    
+    const modal = new bootstrap.Modal(document.getElementById('usageDetailModal'));
+    modal.show();
+}
+
+function getStatusBadgeClass(status) {
+    if (status == 200) return 'bg-success';
+    if (status == 400) return 'bg-warning';
+    if (status == 403) return 'bg-danger';
+    return 'bg-secondary';
+}
+
+// Initialize
+updateTable();
+
+// Initialize Vietnam time formatting
+$(document).ready(function() {
+    updateVietnamTimes();
+});
+</script>
+{% endblock %}
